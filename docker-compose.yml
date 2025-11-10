@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  app:
+    container_name: assessment_client
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+
+

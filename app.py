@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 import tempfile
-import json
 import requests
 from pathlib import Path
-import os
+
 
 
 def process_excel_files(file1, file2):
@@ -36,52 +35,43 @@ def process_excel_files(file1, file2):
         
         # Group data by email
         results = []
-        
-        # Get unique emails from competency matrix
-        if 'email' in df_competency.columns:
-            emails = df_competency['email'].unique()
+        competency_matrix = []
+
+        for _, row in df_competency.iterrows():
+            competency_matrix.append({
+                "name": str(row['name']),
+                "level": "Normal",
+                "description": str(row['description'])
+            })
+
+        if 'Email' in df_qa.columns:
+            emails = df_qa['Email'].unique()
             
             for email in emails:
-                # Filter competency data for this email
-                competency_data = df_competency[df_competency['email'] == email]
-                
-                # Filter Q&A data for this email if email column exists
-                if 'email' in df_qa.columns:
-                    qa_data = df_qa[df_qa['email'] == email]
-                else:
-                    qa_data = df_qa
-                
+                one_student = df_qa[df_qa['Email'] == email]
+  
                 # Build JSON structure
                 json_payload = {
-                    "competency_matrix": [],
-                    "questions_and_answers": []
+                    "competency_matrix": competency_matrix,
+                    "questions_and_answers": [],
+                    "webhook_url": "https://ntfy.sh/assessment"
                 }
                 
-                # Add competency matrix entries
-                for _, row in competency_data.iterrows():
-                    competency_entry = {}
-                    if 'competency' in row:
-                        competency_entry['competency'] = str(row['competency'])
-                    if 'description' in row:
-                        competency_entry['description'] = str(row['description'])
-                    
-                    if competency_entry:
-                        json_payload["competency_matrix"].append(competency_entry)
-                
-                # Add questions and answers entries
-                for _, row in qa_data.iterrows():
+                for _, row in one_student.iterrows():
                     qa_entry = {}
-                    if 'question' in row:
-                        qa_entry['question'] = str(row['question'])
-                    if 'answer' in row:
-                        qa_entry['answer'] = str(row['answer'])
-                    if 'competency' in row:
-                        qa_entry['competency'] = str(row['competency'])
+                    if 'Вопрос' in row:
+                        qa_entry['question'] = str(row['Вопрос'])
+                    if 'Ответ участника' in row:
+                        qa_entry['answer'] = str(row['Ответ участника'])
+                    if 'Основная компетенция' in row:
+                        qa_entry['competency'] = str(row['Основная компетенция'])
                     
                     if qa_entry:
                         json_payload["questions_and_answers"].append(qa_entry)
                 
+                
                 results.append((email, json_payload))
+                break
         
         return results
 
@@ -114,7 +104,7 @@ def main():
     st.sidebar.header("Configuration")
     api_url = st.sidebar.text_input(
         "Assessment API URL",
-        value="https://example:8000/assessment",
+        value="https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
         help="Enter the API endpoint URL"
     )
     
@@ -124,8 +114,9 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("File 1: Competency Matrix")
-        st.write("Expected columns: email, competency, description")
+        st.subheader("Competency Matrix")
+        st.write("Expected columns:")
+        st.write("[name, description]")
         file1 = st.file_uploader(
             "Choose competency matrix Excel file",
             type=['xlsx', 'xls'],
@@ -133,8 +124,9 @@ def main():
         )
     
     with col2:
-        st.subheader("File 2: Questions & Answers")
-        st.write("Expected columns: email, question, answer, competency")
+        st.subheader("Questions & Answers")
+        st.write("[Email, Вопрос,")
+        st.write("Ответ участника, Основная компетенция]")
         file2 = st.file_uploader(
             "Choose Q&A Excel file",
             type=['xlsx', 'xls'],
@@ -196,8 +188,8 @@ def main():
     st.header("How to Use")
     st.markdown("""
     1. **Prepare your Excel files:**
-       - File 1 (Competency Matrix): Should contain columns `email`, `competency`, `description`
-       - File 2 (Questions & Answers): Should contain columns `email`, `question`, `answer`, `competency`
+       - File 1 (Competency Matrix): Should contain columns `name`, `description`
+       - File 2 (Questions & Answers): Should contain columns `Email`, `Вопрос`, `Ответ участника`, `Основная компетенция`
     
     2. **Upload files:**
        - Drag and drop or browse to select the Excel files
