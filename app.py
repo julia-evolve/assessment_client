@@ -40,7 +40,7 @@ def process_excel_files(file1, file2):
         for _, row in df_competency.iterrows():
             competency_matrix.append({
                 "name": str(row['name']),
-                "level": "Normal",
+                "behavior": str(row['behavior']),
                 "description": str(row['description'])
             })
 
@@ -54,7 +54,9 @@ def process_excel_files(file1, file2):
                 json_payload = {
                     "competency_matrix": competency_matrix,
                     "questions_and_answers": [],
-                    "webhook_url": "https://ntfy.sh/assessment"
+                    "webhook_url": "https://ntfy.sh/assessment",
+                    "user_email": email,
+                    "user_name": email
                 }
                 
                 for _, row in one_student.iterrows():
@@ -63,8 +65,8 @@ def process_excel_files(file1, file2):
                         qa_entry['question'] = str(row['Вопрос'])
                     if 'Ответ участника' in row:
                         qa_entry['answer'] = str(row['Ответ участника'])
-                    if 'Основная компетенция' in row:
-                        qa_entry['competency'] = str(row['Основная компетенция'])
+                    if 'Компетенции' in row:
+                        qa_entry['competencies'] = str(row['Компетенции']).split(', ')
                     
                     if qa_entry:
                         json_payload["questions_and_answers"].append(qa_entry)
@@ -97,8 +99,8 @@ def send_to_assessment_api(email, payload, api_url):
 
 
 def main():
-    st.title("Assessment Client - Excel Upload Service")
-    st.write("Upload two Excel files to process assessments and send to the API.")
+    st.title("Assessment Client")
+    st.write("Звгрузите два Excel файла для обработки и отправки данных на API оценки.")
     
     # Configuration section
     st.sidebar.header("Configuration")
@@ -109,36 +111,60 @@ def main():
     )
     
     # File upload section
-    st.header("Upload Excel Files")
+    st.header("Загрузка файлов")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Competency Matrix")
-        st.write("Expected columns:")
+        st.subheader("Матрица компетенций")
+        st.write("Ожидаемые столбцы:")
         st.write("[name, description]")
+        
+        # Download example button
+        example_file_path = Path("examples/matrix_example.xlsx")
+        if example_file_path.exists():
+            with open(example_file_path, "rb") as f:
+                st.download_button(
+                    label="📥 Скачать пример",
+                    data=f,
+                    file_name="matrix_example.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        
         file1 = st.file_uploader(
-            "Choose competency matrix Excel file",
+            "Выберите Excel файл матрицы компетенций",
             type=['xlsx', 'xls'],
             key="file1"
         )
     
     with col2:
-        st.subheader("Questions & Answers")
-        st.write("[Email, Вопрос,")
-        st.write("Ответ участника, Основная компетенция]")
+        st.subheader("Вопросы и ответы")
+        st.write("Ожидаемые столбцы:")
+        st.write("[Email, Вопрос, Ответ участника, Компетенции]")
+        
+        # Download example button
+        example_file_path = Path("examples/qa_example.xlsx")
+        if example_file_path.exists():
+            with open(example_file_path, "rb") as f:
+                st.download_button(
+                    label="📥 Скачать пример",
+                    data=f,
+                    file_name="qa_example.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        
         file2 = st.file_uploader(
-            "Choose Q&A Excel file",
+            "Выберите Excel файл с вопросами и ответами",
             type=['xlsx', 'xls'],
             key="file2"
         )
     
     # Upload button
-    if st.button("Upload and Process", type="primary"):
+    if st.button("Отправить", type="primary"):
         if file1 is None or file2 is None:
-            st.error("Please upload both Excel files before processing.")
+            st.error("Пожалуйста, загрузите оба файла перед отправкой.")
         else:
-            with st.spinner("Processing files..."):
+            with st.spinner("Обработка файлов..."):
                 try:
                     # Process the Excel files
                     results = process_excel_files(file1, file2)
@@ -187,24 +213,24 @@ def main():
     st.divider()
     st.header("How to Use")
     st.markdown("""
-    1. **Prepare your Excel files:**
-       - File 1 (Competency Matrix): Should contain columns `name`, `description`
-       - File 2 (Questions & Answers): Should contain columns `Email`, `Вопрос`, `Ответ участника`, `Основная компетенция`
+    1. **Подготовьте Excel файлы:**
+       - Файл 1 (Матрица компетенций): Должен содержать столбцы `name`, `description`
+       - Файл 2 (Вопросы и ответы): Должен содержать столбцы `Email`, `Вопрос`, `Ответ участника`, `Компетенции`
     
-    2. **Upload files:**
-       - Drag and drop or browse to select the Excel files
+    2. **Загрузите файлы:**
+       - Перетащите или выберите Excel файлы
     
-    3. **Configure API URL** (optional):
-       - Use the sidebar to change the API endpoint if needed
+    3. **Настройте URL API** (опционально):
+       - Используйте боковую панель для изменения адреса API при необходимости
     
-    4. **Click "Upload and Process":**
-       - The application will process each email in the first file
-       - For each email, it creates a JSON payload combining data from both files
-       - JSON payloads are sent to the configured API endpoint
+    4. **Нажмите "Отправить":**
+       - Приложение обработает каждый email из первого файла
+       - Для каждого email создается JSON payload, объединяющий данные из обоих файлов
+       - JSON payload отправляются на настроенный API endpoint
     
-    5. **Review results:**
-       - Check the status messages for each email
-       - Expand the JSON viewers to see the exact data being sent
+    5. **Проверьте результаты:**
+       - Просмотрите статус для каждого email
+       - Разверните просмотр JSON для проверки отправляемых данных
     """)
 
 
