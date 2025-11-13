@@ -104,12 +104,23 @@ def main():
     
     # Configuration section
     st.sidebar.header("Configuration")
-    api_url = st.sidebar.text_input(
+    api_url = st.sidebar.selectbox(
         "Assessment API URL",
-        value="https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
-        help="Enter the API endpoint URL"
+        options=[
+            "https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
+            "https://localhost:8000/evaluate_open_assessments",
+            "Custom"
+        ],
+        index=0,
+        help="Select the API endpoint URL"
     )
-    
+    if api_url == "Custom":
+        api_url = st.sidebar.text_input(
+            "Custom API URL",
+            value="https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
+            help="Enter the API endpoint URL"
+        )
+        
     # File upload section
     st.header("Загрузка файлов")
     
