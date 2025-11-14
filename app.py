@@ -73,7 +73,6 @@ def process_excel_files(file1, file2):
                 
                 
                 results.append((email, json_payload))
-                break
         
         return results
 
