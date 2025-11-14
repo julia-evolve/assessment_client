@@ -39,9 +39,9 @@ def process_excel_files(file1, file2):
 
         for _, row in df_competency.iterrows():
             competency_matrix.append({
-                "name": str(row['name']),
-                "behavior": str(row['behavior']),
-                "description": str(row['description'])
+                "name": str(row['name']).strip(),
+                "behavior": str(row['behavior']).strip(),
+                "description": str(row['description']).strip()
             })
 
         if 'Email' in df_qa.columns:
@@ -66,7 +66,7 @@ def process_excel_files(file1, file2):
                     if 'Ответ участника' in row:
                         qa_entry['answer'] = str(row['Ответ участника'])
                     if 'Компетенции' in row:
-                        qa_entry['competencies'] = str(row['Компетенции']).split(', ')
+                        qa_entry['competencies'] = str(row['Компетенции']).strip().split(', ')
                     
                     if qa_entry:
                         json_payload["questions_and_answers"].append(qa_entry)
@@ -108,7 +108,7 @@ def main():
         "Assessment API URL",
         options=[
             "https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
-            "https://localhost:8000/evaluate_open_assessments",
+            "http://localhost:8000/evaluate_open_assessments",
             "Custom"
         ],
         index=0,
