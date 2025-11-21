@@ -37,12 +37,24 @@ def process_excel_files(file1, file2):
         results = []
         competency_matrix = []
 
+        level_columns = [col for col in df_competency.columns if col.startswith('level_')]
+
         for _, row in df_competency.iterrows():
-            competency_matrix.append({
+            # Create competency with levels
+            competency = {
                 "name": str(row['name']).strip(),
-                "behavior": str(row['behavior']).strip(),
-                "description": str(row['description']).strip()
-            })
+                "description": str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
+                "levels": []
+            }
+
+            for level_col in level_columns:
+                if level_col in row and pd.notna(row[level_col]) and str(row[level_col]).strip():
+                    competency["levels"].append({
+                        "name": level_col,
+                        "description": str(row[level_col]).strip()
+                    })
+
+            competency_matrix.append(competency)
 
         if 'Email' in df_qa.columns:
             emails = df_qa['Email'].unique()
@@ -73,6 +85,7 @@ def process_excel_files(file1, file2):
                 
                 
                 results.append((email, json_payload))
+                break
         
         return results
 
@@ -128,7 +141,7 @@ def main():
     with col1:
         st.subheader("Матрица компетенций")
         st.write("Ожидаемые столбцы:")
-        st.write("[name, description, behavior]")
+        st.write("[name, description, level_0, level_1, level_2, level_3]")
         
         # Download example button
         example_file_path = Path("examples/matrix_example.xlsx")
@@ -228,7 +241,12 @@ def main():
     st.header("How to Use")
     st.markdown("""
     1. **Подготовьте Excel файлы:**
-       - Файл 1 (Матрица компетенций): Должен содержать столбцы `name`, `description`, `behavior`
+       - Файл 1 (Матрица компетенций): Должен содержать столбцы `name`, `description`, `level_0`, `level_1`, `level_2`, `level_3`
+       - КОМПЕТЕНЦИИ НЕ ДОЛЖНЫ СОДЕРЖАТЬ ЗАПЯТЫЕ, ЛИШНИЕ ПРОБЕЛЫ И СКОБКИ
+       - КАК КОМПЕТЕНЦИЯ В МАТРИЦЕ ТАК И К ВОПРОСУ
+       - Доп колонки игнорируются
+       - Вся информация на первом листе эксель с первой строки!
+
        - Файл 2 (Вопросы и ответы): Должен содержать столбцы `Email`, `Вопрос`, `Ответ участника`, `Компетенции`
        - Информация на первом листе эксель!
        - Наименование колонок строго 
@@ -240,5 +258,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # test comment
     main()
