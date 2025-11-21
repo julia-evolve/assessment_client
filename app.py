@@ -2,7 +2,96 @@ import streamlit as st
 import pandas as pd
 import tempfile
 import requests
+import re
 from pathlib import Path
+
+st.set_page_config(
+    page_title="Assessment Client",
+    layout="wide"
+)
+
+
+def normalize_spaces(text: str) -> str:
+    if text is None:
+        return ''
+    return re.sub(r'\s+', ' ', str(text)).strip()
+
+
+def validate_competency_data(df_competency: pd.DataFrame, df_qa: pd.DataFrame):
+    errors = []
+
+    if 'name' not in df_competency.columns:
+        errors.append("В матрице компетенций отсутствует колонка 'name'.")
+        matrix_names = pd.Series(dtype=str)
+    else:
+        matrix_names = df_competency['name'].fillna('').astype(str).map(normalize_spaces)
+
+        comma_mask = matrix_names.str.contains(',', regex=False)
+        if comma_mask.any():
+            offending = matrix_names[comma_mask].unique().tolist()
+            errors.append(
+                "В матрице компетенций запрещены запятые в названии. Исправьте: "
+                + ", ".join(offending[:5])
+                + (" ..." if len(offending) > 5 else "")
+            )
+
+        parentheses_mask = matrix_names.str.contains(r'[()]', regex=True)
+        if parentheses_mask.any():
+            offending = matrix_names[parentheses_mask].unique().tolist()
+            errors.append(
+                "В матрице компетенций уберите текст в скобках из 'name'. Найдены: "
+                + ", ".join(offending[:5])
+                + (" ..." if len(offending) > 5 else "")
+            )
+
+        empty_mask = matrix_names.eq('')
+        if empty_mask.any():
+            errors.append("В матрице компетенций найдены пустые значения в колонке 'name'.")
+
+    if 'Компетенции' not in df_qa.columns:
+        errors.append("В таблице ответов отсутствует колонка 'Компетенции'.")
+        qa_competencies_series = pd.Series(dtype=str)
+    else:
+        qa_competencies_series = df_qa['Компетенции'].fillna('').astype(str).map(normalize_spaces)
+
+        qa_parentheses_mask = qa_competencies_series.str.contains(r'[()]', regex=True)
+        if qa_parentheses_mask.any():
+            offending_rows = df_qa.loc[qa_parentheses_mask, ['Email', 'Компетенции']]
+            details = "; ".join(
+                f"Email {row.get('Email', 'N/A')}: {row['Компетенции']}" for _, row in offending_rows.head(5).iterrows()
+            )
+            if len(offending_rows) > 5:
+                details += " ..."
+            errors.append(
+                "Уберите текст в скобках в колонке 'Компетенции' таблицы ответов. Примеры: " + details
+            )
+
+    qa_competency_names = set()
+    for value in qa_competencies_series:
+        if not value:
+            continue
+        parts = [part.strip() for part in value.split(',') if part.strip()]
+        qa_competency_names.update(parts)
+
+    matrix_name_set = set(matrix_names[matrix_names != ''])
+
+    missing_in_matrix = sorted(qa_competency_names - matrix_name_set)
+    missing_in_qa = sorted(matrix_name_set - qa_competency_names)
+
+    if missing_in_matrix:
+        errors.append(
+            "В таблице ответов найдены компетенции без соответствий в матрице: "
+            + ", ".join(missing_in_matrix)
+        )
+    if missing_in_qa:
+        errors.append(
+            "В матрице компетенций есть названия, которых нет в таблице ответов: "
+            + ", ".join(missing_in_qa)
+        )
+
+    if errors:
+        raise ValueError("\n".join(errors))
+
 
 
 
@@ -32,7 +121,9 @@ def process_excel_files(file1, file2):
         # Read Excel files
         df_competency = pd.read_excel(file1_path)
         df_qa = pd.read_excel(file2_path)
-        
+
+        validate_competency_data(df_competency, df_qa)
+
         # Group data by email
         results = []
         competency_matrix = []
@@ -40,9 +131,10 @@ def process_excel_files(file1, file2):
         level_columns = [col for col in df_competency.columns if col.startswith('level_')]
 
         for _, row in df_competency.iterrows():
+            normalized_name = normalize_spaces(row['name']) if 'name' in row else ''
             # Create competency with levels
             competency = {
-                "name": str(row['name']).strip(),
+                "name": normalized_name,
                 "description": str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
                 "levels": []
             }
@@ -78,14 +170,14 @@ def process_excel_files(file1, file2):
                     if 'Ответ участника' in row:
                         qa_entry['answer'] = str(row['Ответ участника'])
                     if 'Компетенции' in row:
-                        qa_entry['competencies'] = str(row['Компетенции']).strip().split(', ')
+                        competencies_value = normalize_spaces(row['Компетенции'])
+                        qa_entry['competencies'] = [part.strip() for part in competencies_value.split(',') if part.strip()]
                     
                     if qa_entry:
                         json_payload["questions_and_answers"].append(qa_entry)
                 
                 
-                results.append((email, json_payload))
-                break
+        results.append((email, json_payload))
         
         return results
 
@@ -142,6 +234,7 @@ def main():
         st.subheader("Матрица компетенций")
         st.write("Ожидаемые столбцы:")
         st.write("[name, description, level_0, level_1, level_2, level_3]")
+        st.caption("🚫 В колонке name нельзя использовать запятые или текст в скобках.")
         
         # Download example button
         example_file_path = Path("examples/matrix_example.xlsx")
@@ -166,6 +259,7 @@ def main():
         st.subheader("Вопросы и ответы")
         st.write("Ожидаемые столбцы:")
         st.write("[Email, Вопрос, Ответ участника, Компетенции]")
+        st.caption("🚫 В колонке 'Компетенции' не допускается текст в скобках.")
         
         # Download example button
         example_file_path = Path("examples/qa_example.xlsx")
@@ -240,19 +334,18 @@ def main():
     st.divider()
     st.header("How to Use")
     st.markdown("""
-    1. **Подготовьте Excel файлы:**
-       - Файл 1 (Матрица компетенций): Должен содержать столбцы `name`, `description`, `level_0`, `level_1`, `level_2`, `level_3`
-       - КОМПЕТЕНЦИИ НЕ ДОЛЖНЫ СОДЕРЖАТЬ ЗАПЯТЫЕ, ЛИШНИЕ ПРОБЕЛЫ И СКОБКИ
-       - КАК КОМПЕТЕНЦИЯ В МАТРИЦЕ ТАК И К ВОПРОСУ
-       - Доп колонки игнорируются
-       - Вся информация на первом листе эксель с первой строки!
+### 1. **Подготовьте Excel файлы:**.  
+    - Файл 1 (Матрица компетенций): Должен содержать столбцы `name`, `description`, `level_0`, `level_1`, `level_2`, `level_3`
+    - В колонке `name` **нельзя** использовать запятые, лишние пробелы и текст в круглых скобках
+    - Дополнительные колонки игнорируются
+    - Вся информация на первом листе Excel с первой строки
+---
+    - Файл 2 (Вопросы и ответы): Должен содержать столбцы `Email`, `Вопрос`, `Ответ участника`, `Компетенции`
+    - В колонке `Компетенции` запрещён текст в скобках, значения перечисляются через `", "`
+    - Информация на первом листе Excel
+    - Наименование колонок строго, без пустых строк и объединённых ячеек
 
-       - Файл 2 (Вопросы и ответы): Должен содержать столбцы `Email`, `Вопрос`, `Ответ участника`, `Компетенции`
-       - Информация на первом листе эксель!
-       - Наименование колонок строго 
-       - Не должно быть пустых строк и объединенных ячеек
-    
-    2. Получение результата:
+### 2. Получение результата:
        - [https://ntfy.sh/assessment](https://ntfy.sh/assessment)
     """)
 
