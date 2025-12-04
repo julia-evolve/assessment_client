@@ -10,11 +10,39 @@ st.set_page_config(
     layout="wide"
 )
 
+REQUIRED_COMPETENCY_COLUMNS = ["name", "description", "level_0", "level_1", "level_2", "level_3"]
+REQUIRED_QA_COLUMNS = ["Email", "Вопрос", "Ответ участника", "Компетенции"]
+
 
 def normalize_spaces(text: str) -> str:
     if text is None:
         return ''
     return re.sub(r'\s+', ' ', str(text)).strip()
+
+
+def drop_rows_with_nan(df: pd.DataFrame, required_cols, dataset_name: str) -> pd.DataFrame:
+    missing_columns = [col for col in required_cols if col not in df.columns]
+    if missing_columns:
+        raise ValueError(f"{dataset_name}: отсутствуют обязательные колонки: {', '.join(missing_columns)}")
+
+    rows_to_drop = []
+    for idx, row in df.iterrows():
+        nan_columns = [col for col in required_cols if pd.isna(row[col])]
+        if nan_columns:
+            rows_to_drop.append((idx, nan_columns))
+
+    if not rows_to_drop:
+        return df
+
+    for idx, nan_columns in rows_to_drop:
+        excel_row_number = idx + 2  # +2 to account for header row in Excel export
+        st.warning(
+            f"{dataset_name}: строка {excel_row_number} удалена из-за NaN в колонках: "
+            + ", ".join(nan_columns)
+        )
+
+    cleaned_df = df.drop(index=[idx for idx, _ in rows_to_drop]).reset_index(drop=True)
+    return cleaned_df
 
 
 def validate_competency_data(df_competency: pd.DataFrame, df_qa: pd.DataFrame):
@@ -121,6 +149,10 @@ def process_excel_files(file1, file2):
         # Read Excel files
         df_competency = pd.read_excel(file1_path)
         df_qa = pd.read_excel(file2_path)
+
+        # Drop rows with NaN in required columns and inform the user
+        df_competency = drop_rows_with_nan(df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций")
+        df_qa = drop_rows_with_nan(df_qa, REQUIRED_QA_COLUMNS, "Таблица ответов")
 
         validate_competency_data(df_competency, df_qa)
 
