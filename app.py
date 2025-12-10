@@ -12,6 +12,7 @@ st.set_page_config(
 
 REQUIRED_COMPETENCY_COLUMNS = ["name", "description", "level_0", "level_1", "level_2", "level_3"]
 REQUIRED_QA_COLUMNS = ["Email", "Вопрос", "Ответ участника", "Компетенции"]
+EVAL_TYPE_KEYS = ["external", "internal", "development"]
 
 
 def normalize_spaces(text: str) -> str:
@@ -123,13 +124,14 @@ def validate_competency_data(df_competency: pd.DataFrame, df_qa: pd.DataFrame):
 
 
 
-def process_excel_files(file1, file2):
+def process_excel_files(file1, file2, evaluation_type: str):
     """
     Process two Excel files and create JSON payloads for each email.
     
     Args:
         file1: First Excel file (competency matrix)
         file2: Second Excel file (questions and answers)
+        evaluation_type: Selected evaluator key that should be forwarded to the API
     
     Returns:
         List of tuples containing (email, json_payload)
@@ -191,6 +193,7 @@ def process_excel_files(file1, file2):
                     "competency_matrix": competency_matrix,
                     "questions_and_answers": [],
                     "webhook_url": "https://ntfy.sh/assessment",
+                    "evaluation_type": evaluation_type,
                     "user_email": email,
                     "user_name": email
                 }
@@ -256,7 +259,14 @@ def main():
             value="https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
             help="Enter the API endpoint URL"
         )
-        
+
+    evaluation_type = st.selectbox(
+        "Тип оценки",
+        options=EVAL_TYPE_KEYS,
+        index=0,
+        help="Выберите тип оценивания, соответствующий доступным evaluators"
+    )
+
     # File upload section
     st.header("Загрузка файлов")
     
@@ -320,7 +330,7 @@ def main():
             with st.spinner("Обработка файлов..."):
                 try:
                     # Process the Excel files
-                    results = process_excel_files(file1, file2)
+                    results = process_excel_files(file1, file2, evaluation_type)
                     
                     if not results:
                         st.warning("No data found to process. Please check that your Excel files have an 'email' column.")
