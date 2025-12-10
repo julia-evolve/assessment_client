@@ -40,6 +40,12 @@ def main():
         help="Выберите тип оценивания, соответствующий доступным evaluators"
     )
 
+    assessment_info = st.text_area(
+        "Общие данные про ассессмент",
+        placeholder="Добавьте вводные, контекст, ссылки...",
+        height=200
+    )
+
     # File upload section
     st.header("Загрузка файлов")
     
@@ -103,7 +109,7 @@ def main():
             with st.spinner("Обработка файлов..."):
                 try:
                     # Process the Excel files
-                    results = process_excel_files(file1, file2, evaluation_type)
+                    results = process_excel_files(file1, file2, evaluation_type, assessment_info)
                     
                     if not results:
                         st.warning("No data found to process. Please check that your Excel files have an 'email' column.")

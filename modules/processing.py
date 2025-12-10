@@ -7,7 +7,7 @@ from modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
 from modules.validation import drop_rows_with_nan, normalize_spaces, validate_competency_data
 
 
-def process_excel_files(file1, file2, evaluation_type: str):
+def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str | None = None):
     """
     Process two Excel files and create JSON payloads for each email.
 
@@ -15,6 +15,7 @@ def process_excel_files(file1, file2, evaluation_type: str):
         file1: First Excel file (competency matrix)
         file2: Second Excel file (questions and answers)
         evaluation_type: Selected evaluator key that should be forwarded to the API
+        assessment_info: Optional free-text assessment context to send alongside payload
 
     Returns:
         List of tuples containing (email, json_payload)
@@ -69,6 +70,7 @@ def process_excel_files(file1, file2, evaluation_type: str):
                     "questions_and_answers": [],
                     "webhook_url": "https://ntfy.sh/assessment",
                     "evaluation_type": evaluation_type,
+                    "assessment_info": assessment_info or "",
                     "user_email": email,
                     "user_name": email
                 }
