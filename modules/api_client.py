@@ -1,7 +1,7 @@
 import requests
 
 
-def send_to_assessment_api(email, payload, api_url):
+def send_to_assessment_api(payload, api_url):
     """
     Send JSON payload to the assessment API.
 

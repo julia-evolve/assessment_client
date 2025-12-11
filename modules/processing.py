@@ -72,7 +72,8 @@ def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str
                     "evaluation_type": evaluation_type,
                     "assessment_info": assessment_info or "",
                     "user_email": email,
-                    "user_name": email
+                    "user_name": one_student['Name'].iloc[0] if 'Name' in one_student.columns else email,
+                    "position_title": one_student['Позиция'].iloc[0] if 'Позиция' in one_student.columns else "",
                 }
 
                 for _, row in one_student.iterrows():
