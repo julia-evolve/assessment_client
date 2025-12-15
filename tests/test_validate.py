@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app import validate_competency_data
+from src.assessment_client.app import validate_competency_data
 
 
 BASE_DIR = Path(__file__).resolve().parent

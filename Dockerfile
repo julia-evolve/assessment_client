@@ -11,9 +11,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY pyproject.toml ./
 COPY src/ ./src/
-COPY app.py ./
 RUN pip install --no-cache-dir .
+
+ENV PYTHONPATH=/app/src
 
 EXPOSE 8501
 
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "src/assessment_client/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

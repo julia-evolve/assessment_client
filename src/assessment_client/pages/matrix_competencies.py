@@ -2,23 +2,10 @@ import streamlit as st
 
 from assessment_client.modules.api_client import send_to_assessment_api
 from assessment_client.modules.validation import normalize_spaces
-
-LANGUAGE_OPTIONS = ["ru", "en"]
-ASSESSMENT_GOALS = [
-    ("hiring", "Найм / подбор"),
-    ("development", "Развитие сотрудников"),
-    ("certification", "Аттестация / подтверждение уровня"),
-]
-ASSESSMENT_FREQUENCIES = [
-    ("one_time", "Разово"),
-    ("quarterly", "Ежеквартально"),
-    ("annual", "Ежегодно"),
-]
-DEFAULT_MATRIX_REQUEST_URL = "https://evolveaiserver-production.up.railway.app/competencies_matrix"
+import assessment_client.modules.config as config
 
 
-def main():
-    st.set_page_config(page_title="Matrix Request", layout="wide")
+def render():
     st.title("Запрос на подготовку матрицы компетенций")
     st.write("Заполните форму, чтобы отправить запрос в сервис оценки.")
 
@@ -26,7 +13,7 @@ def main():
     st.sidebar.header("Настройки API")
     api_url = st.sidebar.text_input(
         "Matrix request API URL",
-        value=DEFAULT_MATRIX_REQUEST_URL,
+        value=config.DEFAULT_MATRIX_REQUEST_URL,
         help="URL эндпоинта, принимающего MatrixRequest payload"
     )
 
@@ -43,18 +30,18 @@ def main():
     with st.form("matrix_request_form"):
         col1, col2 = st.columns(2)
         with col1:
-            language = st.selectbox("Язык отчёта", LANGUAGE_OPTIONS, index=0)
+            language = st.selectbox("Язык отчёта", config.LANGUAGE_OPTIONS, index=0)
             target_audience = st.text_input("Целевая аудитория", placeholder="Менеджеры по продажам")
             assessment_goal = st.selectbox(
                 "Цель ассессмента",
-                options=[goal[0] for goal in ASSESSMENT_GOALS],
-                format_func=lambda key: dict(ASSESSMENT_GOALS)[key]
+                options=[goal[0] for goal in config.ASSESSMENT_GOALS],
+                format_func=lambda key: dict(config.ASSESSMENT_GOALS)[key]
             )
         with col2:
             frequency = st.selectbox(
                 "Частота ассессмента",
-                options=[freq[0] for freq in ASSESSMENT_FREQUENCIES],
-                format_func=lambda key: dict(ASSESSMENT_FREQUENCIES)[key]
+                options=[freq[0] for freq in config.ASSESSMENT_FREQUENCIES],
+                format_func=lambda key: dict(config.ASSESSMENT_FREQUENCIES)[key]
             )
             company_name = st.text_input("Название компании", placeholder="ООО Пример")
 
@@ -175,4 +162,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # When Streamlit runs this file directly (via the top-left pages menu),
+    # execute the page rendering. When imported by `app.py` we don't
+    # execute render() on import.
+    render()
