@@ -1,9 +1,9 @@
 import streamlit as st
 from pathlib import Path
 
-from modules.api_client import send_to_assessment_api
-from modules.config import EVAL_TYPE_KEYS
-from modules.processing import process_excel_files
+from assessment_client.modules.api_client import send_to_assessment_api
+from assessment_client.modules.config import EVAL_TYPE_KEYS
+from assessment_client.modules.processing import process_excel_files
 
 st.set_page_config(
     page_title="Assessment Client",
