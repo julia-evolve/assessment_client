@@ -13,9 +13,9 @@ def send_to_assessment_api(payload, api_url):
     Returns:
         Response object or error message
     """
-    try:
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
-        return response
-    except Exception as e:
-        return str(e)
+    # try:
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(api_url, json=payload, headers=headers, timeout=120)
+    return response
+    # except Exception as e:
+    #     return str(e)

@@ -11,11 +11,23 @@ def render():
 
     # Configuration sidebar
     st.sidebar.header("Настройки API")
-    api_url = st.sidebar.text_input(
-        "Matrix request API URL",
-        value=config.DEFAULT_MATRIX_REQUEST_URL,
-        help="URL эндпоинта, принимающего MatrixRequest payload"
+    st.sidebar.header("Configuration")
+    api_url = st.sidebar.selectbox(
+        "Assessment API URL",
+        options=[
+            "https://evolveaiserver-production.up.railway.app/competencies_matrix",
+            "http://host.docker.internal:8000/competencies_matrix",
+            "Custom"
+        ],
+        index=0,
+        help="Select the API endpoint URL"
     )
+    if api_url == "Custom":
+        api_url = st.sidebar.text_input(
+            "Custom API URL",
+            value="https://evolveaiserver-production.up.railway.app/competencies_matrix",
+            help="Enter the API endpoint URL"
+        )
 
     st.sidebar.divider()
     st.sidebar.markdown(
@@ -27,31 +39,73 @@ def render():
         """
     )
 
+    # Quick examples helper: fills form fields so you can test without typing
+    with st.expander("Примеры и быстрые заполнения", expanded=False):
+        if st.button("Заполнить простой пример"):
+            # set counts first so form shows the right number of widgets
+            st.session_state['competency_count'] = 3
+            st.session_state['typical_case_count'] = 1
+            st.session_state['language'] = 'ru'
+            st.session_state['target_audience'] = 'Менеджеры по продажам'
+            st.session_state['assessment_goal'] = config.AssessmentGoal.IPR_UPDATE.value
+            st.session_state['frequency'] = config.AssessmentFrequency.ONE_TIME.value
+            st.session_state['company_name'] = 'ООО Пример'
+            st.session_state['audience_description'] = 'Требования: опыт работы 1-3 года в продажах'
+            st.session_state['company_values_and_tone'] = 'Ориентированность на клиента, дружелюбный тон'
+            st.session_state['customer_pain_points'] = 'Низкая конверсия в холодных звонках'
+            # competencies
+            st.session_state['comp_name_0'] = 'Коммуникация'
+            st.session_state['comp_weight_0'] = 30.0
+            st.session_state['comp_desc_0'] = 'Умение доносить мысли и слушать'
+            st.session_state['comp_name_1'] = 'Работа с возражениями'
+            st.session_state['comp_weight_1'] = 35.0
+            st.session_state['comp_desc_1'] = 'Умение грамотно обрабатывать возражения'
+            st.session_state['comp_name_2'] = 'Результативность'
+            st.session_state['comp_weight_2'] = 35.0
+            st.session_state['comp_desc_2'] = 'Достижение плановых показателей'
+            # cases
+            st.session_state['case_0'] = 'Короткий сценарий: звонок клиенту с отказом'
+
+        if st.button("Очистить пример"):
+            keys_to_clear = [
+                'competency_count', 'typical_case_count', 'language', 'target_audience',
+                'assessment_goal', 'frequency', 'company_name', 'audience_description',
+                'company_values_and_tone', 'customer_pain_points'
+            ]
+            for k in keys_to_clear:
+                st.session_state.pop(k, None)
+            # clear competency fields up to 10
+            for i in range(10):
+                st.session_state.pop(f'comp_name_{i}', None)
+                st.session_state.pop(f'comp_weight_{i}', None)
+                st.session_state.pop(f'comp_desc_{i}', None)
+            for i in range(5):
+                st.session_state.pop(f'case_{i}', None)
+
     with st.form("matrix_request_form"):
         col1, col2 = st.columns(2)
         with col1:
-            language = st.selectbox("Язык отчёта", config.LANGUAGE_OPTIONS, index=0)
-            target_audience = st.text_input("Целевая аудитория", placeholder="Менеджеры по продажам")
+            language = st.selectbox("Язык отчёта", config.LANGUAGE_OPTIONS, index=0, key='language')
+            target_audience = st.text_input("Целевая аудитория", placeholder="Менеджеры по продажам", key='target_audience')
             assessment_goal = st.selectbox(
                 "Цель ассессмента",
-                options=[goal[0] for goal in config.ASSESSMENT_GOALS],
-                format_func=lambda key: dict(config.ASSESSMENT_GOALS)[key]
+                options=config.ASSESSMENT_GOALS,
+                # key='assessment_goal'
             )
         with col2:
             frequency = st.selectbox(
                 "Частота ассессмента",
-                options=[freq[0] for freq in config.ASSESSMENT_FREQUENCIES],
-                format_func=lambda key: dict(config.ASSESSMENT_FREQUENCIES)[key]
+                options=config.ASSESSMENT_FREQUENCIES
             )
-            company_name = st.text_input("Название компании", placeholder="ООО Пример")
+            company_name = st.text_input("Название компании", placeholder="ООО Пример", key='company_name')
 
-        audience_description = st.text_area("Требования к участникам", height=100)
-        company_values_and_tone = st.text_area("Ценности и тон коммуникации", height=100)
-        customer_pain_points = st.text_area("Боли заказчика и причины обращения", height=120)
+        audience_description = st.text_area("Требования к участникам", height=100, key='audience_description')
+        company_values_and_tone = st.text_area("Ценности и тон коммуникации", height=100, key='company_values_and_tone')
+        customer_pain_points = st.text_area("Боли заказчика и причины обращения", height=120, key='customer_pain_points')
 
         st.subheader("Компетенции и веса")
         competency_count = st.number_input(
-            "Количество компетенций", min_value=1, max_value=20, step=1, value=3
+            "Количество компетенций", min_value=1, max_value=20, step=1, value=3, key='competency_count'
         )
         competency_inputs = []
         for idx in range(int(competency_count)):
@@ -76,7 +130,7 @@ def render():
 
         st.subheader("Типичные кейсы")
         typical_case_count = st.number_input(
-            "Количество кейсов", min_value=0, max_value=5, step=1, value=1
+            "Количество кейсов", min_value=0, max_value=5, step=1, value=1, key='typical_case_count'
         )
         typical_cases_inputs = []
         for idx in range(int(typical_case_count)):
@@ -88,6 +142,9 @@ def render():
             typical_cases_inputs.append(case_value)
 
         submitted = st.form_submit_button("Отправить заявку")
+
+    normalized_target_audience = None
+    normalized_company_name = None
 
     if not submitted:
         return
@@ -117,20 +174,21 @@ def render():
     if typical_cases_inputs and not typical_cases_payload:
         errors.append("Добавьте текст хотя бы к одному кейсу или установите количество 0.")
 
-        normalized_target_audience = normalize_spaces(target_audience)
-        normalized_company_name = normalize_spaces(company_name)
+    # Normalize a few free-text fields used in payload and validate required ones
+    normalized_target_audience = normalize_spaces(target_audience)
+    normalized_company_name = normalize_spaces(company_name)
 
-        if not normalized_target_audience:
-            errors.append("Заполните поле 'Целевая аудитория'.")
-        if not normalized_company_name:
-            errors.append("Заполните поле 'Название компании'.")
-        if not competencies_payload:
-            errors.append("Нужно указать хотя бы одну компетенцию с названием и весом.")
+    if not normalized_target_audience:
+        errors.append("Заполните поле 'Целевая аудитория'.")
+    if not normalized_company_name:
+        errors.append("Заполните поле 'Название компании'.")
+    if not competencies_payload:
+        errors.append("Нужно указать хотя бы одну компетенцию с названием и весом.")
 
-        if errors:
-            for err in errors:
-                st.error(err)
-            return
+    if errors:
+        for err in errors:
+            st.error(err)
+        return
 
     payload = {
         "language": language,
