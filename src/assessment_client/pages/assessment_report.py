@@ -1,17 +1,13 @@
 import streamlit as st
 from pathlib import Path
+from assessment_client.modules.api_client import send_to_assessment_api
+from assessment_client.modules.config import EVAL_TYPE_KEYS
+from assessment_client.modules.processing import process_excel_files
 
-from modules.api_client import send_to_assessment_api
-from modules.config import EVAL_TYPE_KEYS
-from modules.processing import process_excel_files
 
-st.set_page_config(
-    page_title="Assessment Client",
-    layout="wide"
-)
 
-def main():
-    st.title("Assessment Client")
+def render():
+    st.title("Assessment Report")
     st.write("Звгрузите два Excel файла для обработки и отправки данных на API оценки.")
     
     # Configuration section
@@ -172,4 +168,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # When Streamlit runs this file directly from the pages menu, render the page.
+    render()

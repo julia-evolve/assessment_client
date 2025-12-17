@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "assessment-client"
+version = "0.1.0"
+description = "Streamlit client for competency matrix assessments"
+authors = [{name = "Julia Evolve"}]
+requires-python = ">=3.10"
+readme = "README.md"
+dependencies = [
+    "streamlit==1.28.1",
+    "pandas==2.1.3",
+    "openpyxl==3.1.2",
+    "requests==2.31.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["examples", "tests"]

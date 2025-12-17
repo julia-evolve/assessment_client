@@ -9,6 +9,9 @@ venv/
 env/
 ENV/
 
+# VS Code Python hidden venv
+.venv/
+
 # IDE
 .vscode/
 .idea/
