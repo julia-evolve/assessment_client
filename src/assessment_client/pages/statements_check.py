@@ -49,7 +49,7 @@ def render():
     st.header("Загрузка файлов")
     st.subheader("Проверка утверждений")
     st.write("Ожидаемые столбцы:")
-    st.write("[name, description, level_0, level_1, level_2, level_3]")
+    st.write('["№", "Email", "Вопрос", "П/О", "Компетенции", "Ответ участника"]')
     st.caption("🚫 1 лист в эксель!")
     df = pd.read_excel("src/assessment_client/examples/statements_example.xlsx")
     st.dataframe(df.head(1))
