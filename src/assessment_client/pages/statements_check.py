@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from assessment_client.modules.api_client import send_to_assessment_api
-from assessment_client.modules.config import EVAL_TYPE_KEYS
 from assessment_client.modules.processing import process_statement_inputs
 
 
