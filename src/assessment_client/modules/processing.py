@@ -103,7 +103,11 @@ def process_statement_inputs(file1):
         file1: Excel file with statements
 
     Returns:
-        List of statements
+        List[dict]: A list of payload dictionaries, each with:
+            - "statements": list of statement dictionaries, each containing
+              "question_number", "email", "question", "question_type",
+              "competency", and "participant_answer".
+            - "webhook_url": URL string for the webhook callback.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         file1_path = Path(temp_dir) / file1.name
