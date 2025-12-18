@@ -5,17 +5,15 @@ from assessment_client.modules.api_client import send_to_assessment_api
 from assessment_client.modules.processing import process_statement_inputs
 
 
-def transform_and_send(file1):
+def transform_and_send(file1, api_url: str):
     with st.spinner("Обработка файлов..."):
         payloads = process_statement_inputs(
             file1=file1,
+            api_url=api_url
         )
         for data in payloads:
             response = send_to_assessment_api(
-                api_url=st.session_state.get(
-                    'api_url',
-                    "https://evolveaiserver-production.up.railway.app/evaluate_statements_batch"
-                ),
+                api_url=api_url,
                 payload=data
             )
         st.success("Данные успешно отправлены на API оценки.")
@@ -78,7 +76,7 @@ def render():
         if file1 is None:
             st.error("Пожалуйста, загрузите файл перед отправкой.")
         else:
-            transform_and_send(file1=file1)
+            transform_and_send(file1=file1, api_url=api_url)
 
 if __name__ == "__main__":
     render()
