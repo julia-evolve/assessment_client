@@ -56,7 +56,7 @@ def render():
         # Download example button
         example_file_path = Path("examples/matrix_example.xlsx")
         if not example_file_path.exists():
-            example_file_path = Path("/app/examples/matrix_example.xlsx")
+            example_file_path = Path("src/assessment_client/examples/matrix_example.xlsx")
         if example_file_path.exists():
             with open(example_file_path, "rb") as f:
                 st.download_button(
@@ -81,7 +81,7 @@ def render():
         # Download example button
         example_file_path = Path("examples/qa_example.xlsx")
         if not example_file_path.exists():
-            example_file_path = Path("/app/examples/qa_example.xlsx")
+            example_file_path = Path("src/assessment_client/examples/qa_example.xlsx")
         if example_file_path.exists():
             with open(example_file_path, "rb") as f:
                 st.download_button(
@@ -163,8 +163,8 @@ def render():
     - Наименование колонок строго, без пустых строк и объединённых ячеек
 
 ### 2. Получение результата:
-       - [https://ntfy.sh/assessment](https://ntfy.sh/assessment)
-    """)
+[https://ntfy.sh/assessment](https://ntfy.sh/assessment)
+""")
 
 
 if __name__ == "__main__":

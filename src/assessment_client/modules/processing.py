@@ -92,3 +92,43 @@ def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str
                 results.append((email, json_payload))
 
         return results
+
+
+def process_statement_inputs(file1):
+    """
+    Process a single Excel file containing statements.
+
+    Args:
+        file1: Excel file with statements
+
+    Returns:
+        List[dict]: A list of payload dictionaries, each with:
+            - "statements": list of statement dictionaries, each containing
+              "question_number", "email", "question", "question_type",
+              "competency", and "participant_answer".
+            - "webhook_url": URL string for the webhook callback.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file1_path = Path(temp_dir) / file1.name
+        with open(file1_path, 'wb') as f:
+            f.write(file1.getbuffer())
+
+        df_statements = pd.read_excel(file1_path)
+
+    emails = df_statements["Email"].unique()
+    payloads = []
+    for email in emails:
+        statements = []
+        one_student = df_statements[df_statements["Email"] == email]
+        for row, col in one_student.iterrows():
+            statement_request = dict(
+                question_number = col["№"],
+                email=col["Email"],
+                question=col["Вопрос"],
+                question_type=col["П\О"],
+                competency=col["Компетенции"],
+                participant_answer=col["Ответ участника"],
+            )
+            statements.append(statement_request)
+        payloads.append({"statements": statements, "webhook_url": "https://ntfy.sh/assessment"})
+    return payloads
