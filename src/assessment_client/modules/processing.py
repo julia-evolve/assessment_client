@@ -5,6 +5,7 @@ import pandas as pd
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
 from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, validate_competency_data
+from assessment_client.modules.data_models import StatementRequest
 
 
 def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str | None = None):
@@ -92,3 +93,39 @@ def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str
                 results.append((email, json_payload))
 
         return results
+
+
+def process_statement_inputs(file1):
+    """
+    Process a single Excel file containing statements.
+
+    Args:
+        file1: Excel file with statements
+
+    Returns:
+        List of statements
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        file1_path = Path(temp_dir) / file1.name
+        with open(file1_path, 'wb') as f:
+            f.write(file1.getbuffer())
+
+        df_statements = pd.read_excel(file1_path)
+
+    emails = df_statements["Email"].unique()
+    payloads = []
+    for email in emails:
+        statements = []
+        one_student = df_statements[df_statements["Email"] == email]
+        for row, col in one_student.iterrows():
+            statement_request = dict(
+                question_number = col["№"],
+                email=col["Email"],
+                question=col["Вопрос"],
+                question_type=col["П\О"],
+                competency=col["Компетенции"],
+                participant_answer=col["Ответ участника"],
+            )
+            statements.append(statement_request)
+        payloads.append({"statements": statements, "webhook_url": "https://ntfy.sh/assessment"})
+    return payloads
