@@ -51,11 +51,14 @@ def render():
     st.write("Ожидаемые столбцы:")
     st.write('["№", "Email", "Вопрос", "П/О", "Компетенции", "Ответ участника"]')
     st.caption("🚫 1 лист в эксель!")
-    df = pd.read_excel("src/assessment_client/examples/statements_example.xlsx")
-    st.dataframe(df.head(1))
+    example_file_path = Path("src/assessment_client/examples/statements_example.xlsx")
+    if example_file_path.exists():
+        df = pd.read_excel(example_file_path)
+        st.dataframe(df.head(1))
+    else:
+        st.info("Пример файла с утверждениями недоступен.")
     
     # Download example button
-    example_file_path = Path("src/assessment_client/examples/statements_example.xlsx")
     if example_file_path.exists():
         with open(example_file_path, "rb") as f:
             st.download_button(
