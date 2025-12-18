@@ -24,7 +24,7 @@ def transform_and_send(file1):
 
 def render():
     st.title("Statements Check")
-    st.write("Звгрузите Excel с вопросами и ответами")
+    st.write("Загрузите Excel с вопросами и ответами")
 
     # Configuration section
     st.sidebar.header("Configuration")
