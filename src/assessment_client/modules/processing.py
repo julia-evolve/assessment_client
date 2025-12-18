@@ -5,7 +5,6 @@ import pandas as pd
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
 from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, validate_competency_data
-from assessment_client.modules.data_models import StatementRequest
 
 
 def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str | None = None):
