@@ -113,14 +113,13 @@ def process_statement_inputs(file1, file2):
         with open(file1_path, 'wb') as f:
             f.write(file1.getbuffer())
 
-        df1=pd.read_excel(file1_path, sheet_name="Результаты участников")
-    
-    with tempfile.TemporaryDirectory() as temp_dir:
+        df1 = pd.read_excel(file1_path, sheet_name="Результаты участников")
+
         file2_path = Path(temp_dir) / file2.name
         with open(file2_path, 'wb') as f:
             f.write(file2.getbuffer())
 
-        df2=pd.read_excel(file2_path)
+        df2 = pd.read_excel(file2_path)
 
     cols_answers = [
         'Имя',
