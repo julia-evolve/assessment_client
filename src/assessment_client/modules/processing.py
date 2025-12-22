@@ -143,6 +143,12 @@ def process_statement_inputs(file1, file2):
         'Индикаторы',
     ]
 
+    missing_task_cols = [col for col in cols_tasks if col not in df2.columns]
+    if missing_task_cols:
+        raise ValueError(
+            "The tasks Excel file is missing required column(s): "
+            + ", ".join(missing_task_cols)
+        )
     df_tasks_filtered = df2[cols_tasks]
     df_tasks_filtered.dropna(subset=["Название задания"], inplace=True)
 
