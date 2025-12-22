@@ -147,6 +147,13 @@ def process_statement_inputs(file1, file2):
     df_tasks_filtered.dropna(subset=["Название задания"], inplace=True)
 
     df_statements = pd.merge(df_answers_filtered, df_tasks_filtered, on="Название задания", how="inner")
+    if df_statements.empty:
+        raise ValueError(
+            'Не удалось сопоставить задания между файлами: ни одно значение в столбце '
+            '"Название задания" из листа "Результаты участников" не совпало со значениями '
+            'в файле с заданиями. Проверьте, что названия заданий совпадают (учитывая пробелы, '
+            'опечатки и регистр букв) в обоих файлах.'
+        )
 
     emails = df_statements["Email"].unique()
     payloads = []
