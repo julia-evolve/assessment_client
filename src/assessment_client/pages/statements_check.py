@@ -86,8 +86,8 @@ def render():
 
 
     if st.button("Отправить", type="primary"):
-        if file1 is None:
-            st.error("Пожалуйста, загрузите файл перед отправкой.")
+        if file1 is None or file2 is None:
+            st.error("Пожалуйста, загрузите оба файла перед отправкой.")
         else:
             transform_and_send(file1=file1, file2=file2, api_url=api_url)
 
