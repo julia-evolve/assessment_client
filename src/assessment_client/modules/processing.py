@@ -94,7 +94,7 @@ def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str
         return results
 
 
-def process_statement_inputs(file1):
+def process_statement_inputs(file1, file2):
     """
     Process a single Excel file containing statements.
 
@@ -113,7 +113,53 @@ def process_statement_inputs(file1):
         with open(file1_path, 'wb') as f:
             f.write(file1.getbuffer())
 
-        df_statements = pd.read_excel(file1_path)
+        df1 = pd.read_excel(file1_path, sheet_name="Результаты участников")
+
+        file2_path = Path(temp_dir) / file2.name
+        with open(file2_path, 'wb') as f:
+            f.write(file2.getbuffer())
+
+        df2 = pd.read_excel(file2_path)
+
+    cols_answers = [
+        'Имя',
+        'Email',
+        'Название главы',
+        'Название задания',
+        'Дата отправки',
+        'Ответ участника',
+    ]
+    df_answers_filtered = (
+        df1
+        .loc[df1['Название главы'] == 'Быстрая самооценка', cols_answers]
+    )
+
+    cols_tasks = [
+        '№',
+        'Название задания',
+        'Вопрос',
+        'Тип оценки',
+        'Компетенции',
+        'Индикаторы',
+    ]
+
+    missing_task_cols = [col for col in cols_tasks if col not in df2.columns]
+    if missing_task_cols:
+        raise ValueError(
+            "The tasks Excel file is missing required column(s): "
+            + ", ".join(missing_task_cols)
+        )
+    df_tasks_filtered = df2[cols_tasks]
+    df_tasks_filtered.dropna(subset=["Название задания"], inplace=True)
+
+    df_statements = pd.merge(df_answers_filtered, df_tasks_filtered, on="Название задания", how="inner")
+    if df_statements.empty:
+        raise ValueError(
+            'Не удалось сопоставить задания между файлами: ни одно значение в столбце '
+            '"Название задания" из листа "Результаты участников" не совпало со значениями '
+            'в файле с заданиями. Проверьте, что названия заданий совпадают (учитывая пробелы, '
+            'опечатки и регистр букв) в обоих файлах.'
+        )
 
     emails = df_statements["Email"].unique()
     payloads = []
@@ -125,7 +171,7 @@ def process_statement_inputs(file1):
                 question_number = col["№"],
                 email=col["Email"],
                 question=col["Вопрос"],
-                question_type=col["П\О"],
+                question_type=col["Тип оценки"],
                 competency=col["Компетенции"],
                 participant_answer=col["Ответ участника"],
             )
