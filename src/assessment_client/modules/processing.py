@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 import json
+import numpy as np
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
 from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, validate_competency_data
@@ -207,6 +208,9 @@ def process_dilemma_inputs(file1, file2):
             f.write(file2.getbuffer())
 
         df2 = pd.read_excel(file2_path)
+        df1 = df1.replace({np.nan: None})
+        df2 = df2.replace({np.nan: None})
+
 
     
     cols_answers = [
@@ -262,13 +266,13 @@ def process_dilemma_inputs(file1, file2):
         one_student = df_dilemma[df_dilemma["Email"] == email]
         for _, col in one_student.iterrows():
             dilemma_request = dict(
-                dilemma_id=col["№"],
+                question_number=str(col["№"]),
                 email=col["Email"],
                 situation=col["Название главы"],
-                option_a=col["Название задания"],
+                question=col["Название задания"],
                 competency=col["Компетенции"],
                 indicators=col["Индикаторы"],
-                participant_choice=col["Ответ участника"],
+                participant_answer=col["Ответ участника"],
             )
             dilemmas.append(dilemma_request)
         payloads.append({"dilemmas": dilemmas, "webhook_url": "https://ntfy.sh/assessment"})

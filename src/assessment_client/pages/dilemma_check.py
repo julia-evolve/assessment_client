@@ -11,6 +11,7 @@ def transform_and_send(file1, file2, api_url: str):
             file1=file1,
             file2=file2
         )
+        # st.json(payloads)
         for data in payloads:
             response = send_to_assessment_api(
                 api_url=api_url,
