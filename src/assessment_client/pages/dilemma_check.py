@@ -1,18 +1,33 @@
+import asyncio
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 from assessment_client.modules.api_client import send_to_assessment_api
-from assessment_client.modules.processing import process_dilemma_inputs, process_statement_inputs
+from assessment_client.modules.processing import df_from_files, process_dilemma_inputs
 
 
-def transform_and_send(file1, file2, api_url: str):
+async def transform_and_send(file1, file2, api_url: str):
     with st.spinner("Обработка файлов..."):
-        payloads = process_dilemma_inputs(
-            file1=file1,
-            file2=file2
-        )
-        # st.json(payloads)
-        for data in payloads:
+        df = await df_from_files(file1, file2)
+        
+        # Filter for dilemmas chapter
+        df_dilemmas = df[df['Название главы'] == 'Дилеммы']
+        
+        if df_dilemmas.empty:
+            st.warning("Не найдено записей с главой 'Дилеммы'")
+            return
+        
+        # Process each email separately
+        emails = df_dilemmas["Email"].unique()
+        all_payloads = []
+        
+        for email in emails:
+            df_one_email = df_dilemmas[df_dilemmas["Email"] == email]
+            payload = await process_dilemma_inputs(df_one_email)
+            all_payloads.append(payload)
+        
+        # Send each payload to API
+        for data in all_payloads:
             response = send_to_assessment_api(
                 api_url=api_url,
                 payload=data
@@ -35,7 +50,7 @@ def download_example_button(
             )
 
 
-def render():
+async def render():
     st.title("Dilemma Check")
     st.write("Загрузите Excel с вопросами и ответами")
 
@@ -90,7 +105,7 @@ def render():
         if file1 is None or file2 is None:
             st.error("Пожалуйста, загрузите оба файла перед отправкой.")
         else:
-            transform_and_send(file1=file1, file2=file2, api_url=api_url)
+            await transform_and_send(file1=file1, file2=file2, api_url=api_url)
 
     st.markdown("---")
     st.markdown("## Инструкция по подготовке файлов")
@@ -101,4 +116,4 @@ def render():
 """)
 
 if __name__ == "__main__":
-    render()
+    asyncio.run(render())

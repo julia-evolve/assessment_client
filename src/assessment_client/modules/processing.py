@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+import asyncio
 
 import pandas as pd
 import json
@@ -7,6 +8,28 @@ import numpy as np
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
 from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, validate_competency_data
+
+
+def safe_value(value, default=None):
+    """
+    Convert pandas/numpy values to JSON-safe values.
+    Replaces NaN, inf, -inf with default value (None or empty string).
+    
+    Args:
+        value: Value from pandas DataFrame
+        default: Default value to return if value is NaN/inf
+    
+    Returns:
+        JSON-safe value
+    """
+    if pd.isna(value):
+        return default
+    if isinstance(value, (float, np.floating)):
+        if np.isinf(value):
+            return default
+    if isinstance(value, str) and value.strip() == '':
+        return default if default is not None else ''
+    return value
 
 
 def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str | None = None):
@@ -95,21 +118,7 @@ def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str
 
         return results
 
-
-def process_statement_inputs(file1, file2):
-    """
-    Process a single Excel file containing statements.
-
-    Args:
-        file1: Excel file with statements
-
-    Returns:
-        List[dict]: A list of payload dictionaries, each with:
-            - "statements": list of statement dictionaries, each containing
-              "question_number", "email", "question", "question_type",
-              "competency", and "participant_answer".
-            - "webhook_url": URL string for the webhook callback.
-    """
+async def df_from_files(file1, file2):
     with tempfile.TemporaryDirectory() as temp_dir:
         file1_path = Path(temp_dir) / file1.name
         with open(file1_path, 'wb') as f:
@@ -131,10 +140,7 @@ def process_statement_inputs(file1, file2):
         'Дата отправки',
         'Ответ участника',
     ]
-    df_answers_filtered = (
-        df1
-        .loc[df1['Название главы'] == 'Быстрая самооценка', cols_answers]
-    )
+    df_answers_filtered = df1[cols_answers]
 
     cols_tasks = [
         '№',
@@ -154,126 +160,153 @@ def process_statement_inputs(file1, file2):
     df_tasks_filtered = df2[cols_tasks]
     df_tasks_filtered.dropna(subset=["Название задания"], inplace=True)
 
-    df_statements = pd.merge(df_answers_filtered, df_tasks_filtered, on="Название задания", how="inner")
-    if df_statements.empty:
+    merged_df = pd.merge(df_answers_filtered, df_tasks_filtered, on="Название задания", how="inner")
+    if merged_df.empty:
         raise ValueError(
             'Не удалось сопоставить задания между файлами: ни одно значение в столбце '
             '"Название задания" из листа "Результаты участников" не совпало со значениями '
             'в файле с заданиями. Проверьте, что названия заданий совпадают (учитывая пробелы, '
             'опечатки и регистр букв) в обоих файлах.'
         )
+    return merged_df
 
-    emails = df_statements["Email"].unique()
-    payloads = []
-    for email in emails:
-        statements = []
-        one_student = df_statements[df_statements["Email"] == email]
-        for row, col in one_student.iterrows():
-            statement_request = dict(
-                question_number = col["№"],
-                email=col["Email"],
-                question=col["Вопрос"],
-                question_type=col["Тип оценки"],
-                competency=col["Компетенции"],
-                participant_answer=col["Ответ участника"],
-            )
-            statements.append(statement_request)
-        payloads.append({"statements": statements, "webhook_url": "https://ntfy.sh/assessment"})
-    return payloads
-
-
-def process_dilemma_inputs(file1, file2):
+async def process_statement_inputs(df_statements_one_email):
     """
-    Process a single Excel file containing dilemmas.
-
+    Process statements for a single email.
+    
     Args:
-        file1: Excel file with dilemmas
-
+        df_statements_one_email: DataFrame filtered for one email and 'Быстрая самооценка' chapter
+    
     Returns:
-        List[dict]: A list of payload dictionaries, each with:
-            - "dilemmas": list of dilemma dictionaries, each containing
-              "dilemma_id", "email", "situation", "option_a", "option_b",
-              and "participant_choice".
-            - "webhook_url": URL string for the webhook callback.
+        Dict with 'statements' list and 'webhook_url'
     """
-    with tempfile.TemporaryDirectory() as temp_dir:
-        file1_path = Path(temp_dir) / file1.name
-        with open(file1_path, 'wb') as f:
-            f.write(file1.getbuffer())
+    statements = []
+    for _, col in df_statements_one_email.iterrows():
+        statement_request = dict(
+            question_number=safe_value(col["№"]),
+            email=safe_value(col["Email"], ""),
+            question=safe_value(col["Вопрос"], ""),
+            question_type=safe_value(col["Тип оценки"], ""),
+            competency=safe_value(col["Компетенции"], ""),
+            participant_answer=safe_value(col["Ответ участника"], ""),
+        )
+        statements.append(statement_request)
+    return {"statements": statements, "webhook_url": "https://ntfy.sh/assessment"}
 
-        df1 = pd.read_excel(file1_path, sheet_name="Результаты участников")
-        
-        file2_path = Path(temp_dir) / file2.name
-        with open(file2_path, 'wb') as f:
-            f.write(file2.getbuffer())
-
-        df2 = pd.read_excel(file2_path)
-        df1 = df1.replace({np.nan: None})
-        df2 = df2.replace({np.nan: None})
-
-
+async def process_dilemma_inputs(df_dilemma_one_email):
+    """
+    Process dilemmas for a single email.
     
-    cols_answers = [
-        'Имя',
-        'Email',
-        'Название главы',
-        'Название задания',
-        'Дата отправки',
-        'Ответ участника',
-    ]
-
-    missing_cols = [col for col in cols_answers if col not in df1.columns]
-    if missing_cols:
-        raise ValueError(
-            "The dilemmas Excel file is missing required column(s): "
-            + ", ".join(missing_cols)
-        )
-    df_answers_filtered = (
-        df1
-        .loc[df1['Название главы'].str.strip() == 'Дилеммы', cols_answers]
-    )
+    Args:
+        df_dilemma_one_email: DataFrame filtered for one email and 'Дилеммы' chapter
     
-    cols_tasks = [
-        '№',
-        'Название задания',
-        'Вопрос',
-        'Компетенции',
-        'Индикаторы',
-    ]
-
-    missing_task_cols = [col for col in cols_tasks if col not in df2.columns]
-    if missing_task_cols:
-        raise ValueError(
-            "The tasks Excel file is missing required column(s): "
-            + ", ".join(missing_task_cols)
+    Returns:
+        Dict with 'dilemmas' list and 'webhook_url'
+    """
+    dilemmas = []
+    for _, col in df_dilemma_one_email.iterrows():
+        dilemma_request = dict(
+            question_number=str(safe_value(col["№"], "")),
+            email=safe_value(col["Email"], ""),
+            situation=safe_value(col["Название главы"], ""),
+            question=safe_value(col["Название задания"], ""),
+            competency=safe_value(col["Компетенции"], ""),
+            indicators=safe_value(col["Индикаторы"], ""),
+            participant_answer=safe_value(col["Ответ участника"], ""),
         )
-    df_tasks_filtered = df2[cols_tasks]
-    df_tasks_filtered.dropna(subset=["Название задания"], inplace=True)
+        dilemmas.append(dilemma_request)
+    return {"dilemmas": dilemmas, "webhook_url": "https://ntfy.sh/assessment"}
 
-
-    df_dilemma = pd.merge(df_answers_filtered, df_tasks_filtered, on="Название задания", how="inner")
-    if df_dilemma.empty:
-        raise ValueError(
-            'Не удалось сопоставить задания между файлами: ни одно значение в столбце '
-            '"Название задания" из листа "Результаты участников" не совпало со значениями '
-            'в файле с заданиями. Проверьте, что названия заданий совпадают (учитывая пробелы, '
-            'опечатки и регистр букв) в обоих файлах.'
+async def process_situation_inputs(df_situation_one_email):
+    """
+    Process situational cases for a single email.
+    
+    Args:
+        df_situation_one_email: DataFrame filtered for one email and 'Ситуационные кейсы' chapter
+    
+    Returns:
+        Dict with 'situations' list and 'webhook_url'
+    """
+    situations = []
+    for _, col in df_situation_one_email.iterrows():
+        situation_request = dict(
+            question_number=str(safe_value(col["№"], "")),
+            email=safe_value(col["Email"], ""),
+            situation=safe_value(col["Название главы"], ""),
+            question=safe_value(col["Название задания"], ""),
+            competency=safe_value(col["Компетенции"], ""),
+            indicators=safe_value(col["Индикаторы"], ""),
+            participant_answer=safe_value(col["Ответ участника"], ""),
         )
-    emails = df_dilemma["Email"].unique()
-    payloads = []
+        situations.append(situation_request)
+    return {"situations": situations, "webhook_url": "https://ntfy.sh/assessment"}
+
+async def process_open_question_inputs(df_open_one_email):
+    """
+    Process open questions for a single email.
+    
+    Args:
+        df_open_one_email: DataFrame filtered for one email and 'Открытые вопросы' chapter
+    
+    Returns:
+        Dict with 'open_questions' list and 'webhook_url'
+    """
+    open_questions = []
+    for _, col in df_open_one_email.iterrows():
+        open_question_request = dict(
+            question_number=str(safe_value(col["№"], "")),
+            email=safe_value(col["Email"], ""),
+            situation=safe_value(col["Название главы"], ""),
+            question=safe_value(col["Название задания"], ""),
+            competency=safe_value(col["Компетенции"], ""),
+            indicators=safe_value(col["Индикаторы"], ""),
+            participant_answer=safe_value(col["Ответ участника"], ""),
+        )
+        open_questions.append(open_question_request)
+    return {"open_questions": open_questions, "webhook_url": "https://ntfy.sh/assessment"}
+
+async def process_all_inputs(file1, file2):
+    """
+    Process uploaded files and return combined payloads for all task types per email.
+    
+    Args:
+        file1: Uploaded Excel file with raw data (sheet: "Результаты участников")
+        file2: Uploaded Excel file with task definitions
+    
+    Returns:
+        List of payload dicts ready to send to API (one payload per email per task type)
+    """
+    # Merge dataframes from uploaded files
+    df_merged = await df_from_files(file1, file2)
+    
+    # Split by email at the top level
+    emails = df_merged["Email"].unique()
+    all_payloads = {}
+    
     for email in emails:
-        dilemmas = []
-        one_student = df_dilemma[df_dilemma["Email"] == email]
-        for _, col in one_student.iterrows():
-            dilemma_request = dict(
-                question_number=str(col["№"]),
-                email=col["Email"],
-                situation=col["Название главы"],
-                question=col["Название задания"],
-                competency=col["Компетенции"],
-                indicators=col["Индикаторы"],
-                participant_answer=col["Ответ участника"],
-            )
-            dilemmas.append(dilemma_request)
-        payloads.append({"dilemmas": dilemmas, "webhook_url": "https://ntfy.sh/assessment"})
-    return payloads
+        # Filter data for this specific email
+        df_one_email = df_merged[df_merged["Email"] == email]
+        
+        # Prepare filtered dataframes for each task type
+        df_statements = df_one_email[df_one_email['Название главы'] == 'Быстрая самооценка']
+        df_dilemmas = df_one_email[df_one_email['Название главы'] == 'Дилеммы']
+        df_situations = df_one_email[df_one_email['Название главы'] == 'Ситуационные кейсы']
+        df_open = df_one_email[df_one_email['Название главы'] == 'Открытые вопросы']
+        
+        # Process each task type concurrently for this email
+        tasks = []
+        if not df_statements.empty:
+            tasks.append(process_statement_inputs(df_statements))
+        if not df_dilemmas.empty:
+            tasks.append(process_dilemma_inputs(df_dilemmas))
+        if not df_situations.empty:
+            tasks.append(process_situation_inputs(df_situations))
+        if not df_open.empty:
+            tasks.append(process_open_question_inputs(df_open))
+        
+        # Gather results for this email
+        if tasks:
+            email_payloads = await asyncio.gather(*tasks)
+            all_payloads[email] = email_payloads
+    
+    return all_payloads

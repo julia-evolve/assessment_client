@@ -1,42 +1,29 @@
 import streamlit as st
+import pandas as pd
 import asyncio
 from pathlib import Path
 from assessment_client.modules.api_client import send_to_assessment_api
-from assessment_client.modules.processing import process_statement_inputs, df_from_files
+from assessment_client.modules.processing import process_all_inputs
 
 
 async def transform_and_send(file1, file2, api_url: str):
+    """Async function to process files and send payloads to API."""
     with st.spinner("Обработка файлов..."):
-        df = await df_from_files(file1, file2)
-        
-        # Filter for statements chapter
-        df_statements = df[df['Название главы'] == 'Быстрая самооценка']
-        
-        if df_statements.empty:
-            st.warning("Не найдено записей с главой 'Быстрая самооценка'")
-            return
-        
-        # Process each email separately
-        emails = df_statements["Email"].unique()
-        all_payloads = []
-        
-        for email in emails:
-            df_one_email = df_statements[df_statements["Email"] == email]
-            payload = await process_statement_inputs(df_one_email)
-            all_payloads.append(payload)
-        
-        # Send each payload to API
-        for data in all_payloads:
-            st.json(data)  # Uncomment to debug
+        payloads = await process_all_inputs(
+            file1=file1,
+            file2=file2
+        )
+        # st.json(payloads)  # Uncomment to debug
+        for email in payloads.keys():
             response = send_to_assessment_api(
                 api_url=api_url,
-                payload=data
+                payload=payloads[email]
             )
         st.success("Данные успешно отправлены на API оценки.")
 
 def download_example_button(
         path: str, 
-        file_name: str = "statements_example.xlsx",
+        file_name: str = "all_example.xlsx",
         label: str = "📥 Скачать пример",
     ):
     example_file_path = Path(path)
@@ -50,8 +37,8 @@ def download_example_button(
             )
 
 
-async def render():
-    st.title("Statements Check")
+def render():
+    st.title("Dilemma Check")
     st.write("Загрузите Excel с вопросами и ответами")
 
     # Configuration section
@@ -59,8 +46,8 @@ async def render():
     api_url = st.sidebar.selectbox(
         "Assessment API URL",
         options=[
-            "https://evolveaiserver-production.up.railway.app/evaluate_statements_batch",
-            "http://host.docker.internal:8000/evaluate_statements_batch",
+            "https://evolveaiserver-production.up.railway.app/evaluate_dilemmas_batch",
+            "http://host.docker.internal:8000/evaluate_dilemmas_batch",
             "Custom"
         ],
         index=0,
@@ -69,7 +56,7 @@ async def render():
     if api_url == "Custom":
         api_url = st.sidebar.text_input(
             "Custom API URL",
-            value="https://evolveaiserver-production.up.railway.app/statements_check",
+            value="https://evolveaiserver-production.up.railway.app/evaluate_dilemmas_batch",
             help="Enter the API endpoint URL"
         )
     
@@ -77,7 +64,7 @@ async def render():
     st.header("Загрузка файлов")
     col1, col2 = st.columns(2)
     with col1:
-        st.write("Таблица с утверждениями и ответами")
+        st.write("Таблица дилеммами")
         download_example_button(
             "src/assessment_client/examples/stat_raw_example.xlsx",
             file_name="stat_raw_example.xlsx"
@@ -105,7 +92,8 @@ async def render():
         if file1 is None or file2 is None:
             st.error("Пожалуйста, загрузите оба файла перед отправкой.")
         else:
-            await transform_and_send(file1=file1, file2=file2, api_url=api_url)
+            # Run the async function in an event loop
+            asyncio.run(transform_and_send(file1=file1, file2=file2, api_url=api_url))
 
     st.markdown("---")
     st.markdown("## Инструкция по подготовке файлов")
@@ -116,4 +104,4 @@ async def render():
 """)
 
 if __name__ == "__main__":
-    asyncio.run(render())
+    render()
