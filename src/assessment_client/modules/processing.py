@@ -32,105 +32,19 @@ def safe_value(value, default=None):
     return value
 
 
-def process_excel_files(file1, file2, evaluation_type: str, assessment_info: str | None = None):
-    """
-    Process two Excel files and create JSON payloads for each email.
-
-    Args:
-        file1: First Excel file (competency matrix)
-        file2: Second Excel file (questions and answers)
-        evaluation_type: Selected evaluator key that should be forwarded to the API
-        assessment_info: Optional free-text assessment context to send alongside payload
-
-    Returns:
-        List of tuples containing (email, json_payload)
-    """
+async def df_from_files(participants_results_file, tasks_file):
     with tempfile.TemporaryDirectory() as temp_dir:
-        file1_path = Path(temp_dir) / file1.name
-        with open(file1_path, 'wb') as f:
-            f.write(file1.getbuffer())
+        participants_path = Path(temp_dir) / participants_results_file.name
+        with open(participants_path, 'wb') as f:
+            f.write(participants_results_file.getbuffer())
 
-        file2_path = Path(temp_dir) / file2.name
-        with open(file2_path, 'wb') as f:
-            f.write(file2.getbuffer())
+        df1 = pd.read_excel(participants_path, sheet_name="Результаты участников")
 
-        df_competency = pd.read_excel(file1_path)
-        df_qa = pd.read_excel(file2_path)
+        tasks_path = Path(temp_dir) / tasks_file.name
+        with open(tasks_path, 'wb') as f:
+            f.write(tasks_file.getbuffer())
 
-        df_competency = drop_rows_with_nan(df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций")
-        df_qa = drop_rows_with_nan(df_qa, REQUIRED_QA_COLUMNS, "Таблица ответов")
-
-        validate_competency_data(df_competency, df_qa)
-
-        results = []
-        competency_matrix = []
-
-        level_columns = [col for col in df_competency.columns if col.startswith('level_')]
-
-        for _, row in df_competency.iterrows():
-            normalized_name = normalize_spaces(row['name']) if 'name' in row else ''
-            competency = {
-                "name": normalized_name,
-                "description": str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
-                "levels": []
-            }
-
-            for level_col in level_columns:
-                if level_col in row and pd.notna(row[level_col]) and str(row[level_col]).strip():
-                    competency["levels"].append({
-                        "name": level_col,
-                        "description": str(row[level_col]).strip()
-                    })
-
-            competency_matrix.append(competency)
-
-        if 'Email' in df_qa.columns:
-            emails = df_qa['Email'].unique()
-
-            for email in emails:
-                one_student = df_qa[df_qa['Email'] == email]
-
-                json_payload = {
-                    "competency_matrix": competency_matrix,
-                    "questions_and_answers": [],
-                    "webhook_url": "https://ntfy.sh/assessment",
-                    "evaluation_type": evaluation_type,
-                    "assessment_info": assessment_info or "",
-                    "user_email": email,
-                    "user_name": one_student['Name'].iloc[0] if 'Name' in one_student.columns else email,
-                    "position_title": one_student['Позиция'].iloc[0] if 'Позиция' in one_student.columns else "",
-                }
-
-                for _, row in one_student.iterrows():
-                    qa_entry = {}
-                    if 'Вопрос' in row:
-                        qa_entry['question'] = str(row['Вопрос'])
-                    if 'Ответ участника' in row:
-                        qa_entry['answer'] = str(row['Ответ участника'])
-                    if 'Компетенции' in row:
-                        competencies_value = normalize_spaces(row['Компетенции'])
-                        qa_entry['competencies'] = [part.strip() for part in competencies_value.split(',') if part.strip()]
-
-                    if qa_entry:
-                        json_payload["questions_and_answers"].append(qa_entry)
-
-                results.append((email, json_payload))
-
-        return results
-
-async def df_from_files(file1, file2):
-    with tempfile.TemporaryDirectory() as temp_dir:
-        file1_path = Path(temp_dir) / file1.name
-        with open(file1_path, 'wb') as f:
-            f.write(file1.getbuffer())
-
-        df1 = pd.read_excel(file1_path, sheet_name="Результаты участников")
-
-        file2_path = Path(temp_dir) / file2.name
-        with open(file2_path, 'wb') as f:
-            f.write(file2.getbuffer())
-
-        df2 = pd.read_excel(file2_path)
+        df2 = pd.read_excel(tasks_path)
 
     cols_answers = [
         'Имя',
@@ -157,7 +71,7 @@ async def df_from_files(file1, file2):
             "The tasks Excel file is missing required column(s): "
             + ", ".join(missing_task_cols)
         )
-    df_tasks_filtered = df2[cols_tasks]
+    df_tasks_filtered = df2[cols_tasks].copy()
     df_tasks_filtered.dropna(subset=["Название задания"], inplace=True)
 
     merged_df = pd.merge(df_answers_filtered, df_tasks_filtered, on="Название задания", how="inner")
@@ -178,20 +92,20 @@ async def process_statement_inputs(df_statements_one_email):
         df_statements_one_email: DataFrame filtered for one email and 'Быстрая самооценка' chapter
     
     Returns:
-        Dict with 'statements' list and 'webhook_url'
+        Dict with 'statements' list matching StatementsData contract
     """
     statements = []
     for _, col in df_statements_one_email.iterrows():
         statement_request = dict(
-            question_number=safe_value(col["№"]),
+            id=safe_value(col["№"]),
             email=safe_value(col["Email"], ""),
             question=safe_value(col["Вопрос"], ""),
-            question_type=safe_value(col["Тип оценки"], ""),
+            eval_type=safe_value(col["Тип оценки"], ""),
             competency=safe_value(col["Компетенции"], ""),
-            participant_answer=safe_value(col["Ответ участника"], ""),
+            answer=safe_value(col["Ответ участника"], ""),
         )
         statements.append(statement_request)
-    return {"statements": statements, "webhook_url": "https://ntfy.sh/assessment"}
+    return {"statements": statements}
 
 async def process_dilemma_inputs(df_dilemma_one_email):
     """
@@ -201,21 +115,20 @@ async def process_dilemma_inputs(df_dilemma_one_email):
         df_dilemma_one_email: DataFrame filtered for one email and 'Дилеммы' chapter
     
     Returns:
-        Dict with 'dilemmas' list and 'webhook_url'
+        Dict with 'dilemmas' list matching DilemmasData contract
     """
     dilemmas = []
     for _, col in df_dilemma_one_email.iterrows():
         dilemma_request = dict(
-            question_number=str(safe_value(col["№"], "")),
+            id=str(safe_value(col["№"], "")),
             email=safe_value(col["Email"], ""),
-            situation=safe_value(col["Название главы"], ""),
-            question=safe_value(col["Название задания"], ""),
+            question=safe_value(col["Вопрос"], ""),
             competency=safe_value(col["Компетенции"], ""),
             indicators=safe_value(col["Индикаторы"], ""),
-            participant_answer=safe_value(col["Ответ участника"], ""),
+            answer=safe_value(col["Ответ участника"], ""),
         )
         dilemmas.append(dilemma_request)
-    return {"dilemmas": dilemmas, "webhook_url": "https://ntfy.sh/assessment"}
+    return {"dilemmas": dilemmas}
 
 async def process_situation_inputs(df_situation_one_email):
     """
@@ -225,59 +138,67 @@ async def process_situation_inputs(df_situation_one_email):
         df_situation_one_email: DataFrame filtered for one email and 'Ситуационные кейсы' chapter
     
     Returns:
-        Dict with 'situations' list and 'webhook_url'
+        Dict with 'situations' list matching contract
     """
     situations = []
     for _, col in df_situation_one_email.iterrows():
         situation_request = dict(
-            question_number=str(safe_value(col["№"], "")),
+            id=str(safe_value(col["№"], "")),
             email=safe_value(col["Email"], ""),
-            situation=safe_value(col["Название главы"], ""),
-            question=safe_value(col["Название задания"], ""),
+            question=safe_value(col["Вопрос"], ""),
             competency=safe_value(col["Компетенции"], ""),
             indicators=safe_value(col["Индикаторы"], ""),
-            participant_answer=safe_value(col["Ответ участника"], ""),
+            answer=safe_value(col["Ответ участника"], ""),
         )
         situations.append(situation_request)
-    return {"situations": situations, "webhook_url": "https://ntfy.sh/assessment"}
+    return {"situations": situations}
 
-async def process_open_question_inputs(df_open_one_email):
+async def process_open_question_inputs(df_open_one_email, competency_matrix=None, assessment_type="external"):
     """
     Process open questions for a single email.
     
     Args:
         df_open_one_email: DataFrame filtered for one email and 'Открытые вопросы' chapter
+        competency_matrix: List of competency dicts (optional)
+        assessment_type: Type of assessment (default: "external")
     
     Returns:
-        Dict with 'open_questions' list and 'webhook_url'
+        Dict with 'competency_matrix', 'questions_and_answers', 'assessment_type' matching OpenQuestionsData contract
     """
-    open_questions = []
+    questions_and_answers = []
     for _, col in df_open_one_email.iterrows():
-        open_question_request = dict(
-            question_number=str(safe_value(col["№"], "")),
-            email=safe_value(col["Email"], ""),
-            situation=safe_value(col["Название главы"], ""),
-            question=safe_value(col["Название задания"], ""),
-            competency=safe_value(col["Компетенции"], ""),
-            indicators=safe_value(col["Индикаторы"], ""),
-            participant_answer=safe_value(col["Ответ участника"], ""),
+        competencies_value = safe_value(col["Компетенции"], "")
+        # Parse competencies as comma-separated list
+        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
+        
+        qa_entry = dict(
+            question=safe_value(col["Вопрос"], ""),
+            answer=safe_value(col["Ответ участника"], ""),
+            competencies=competencies_list,
         )
-        open_questions.append(open_question_request)
-    return {"open_questions": open_questions, "webhook_url": "https://ntfy.sh/assessment"}
+        questions_and_answers.append(qa_entry)
+    
+    return {
+        "competency_matrix": competency_matrix or [],
+        "questions_and_answers": questions_and_answers,
+        "assessment_type": assessment_type
+    }
 
-async def process_all_inputs(file1, file2):
+async def process_all_inputs(participants_results_file, tasks_file, competency_matrix=None, assessment_info=""):
     """
-    Process uploaded files and return combined payloads for all task types per email.
+    Process uploaded files and return CombinedAssessmentRequest payloads per email.
     
     Args:
-        file1: Uploaded Excel file with raw data (sheet: "Результаты участников")
-        file2: Uploaded Excel file with task definitions
+        participants_results_file: Uploaded Excel file with raw data (sheet: "Результаты участников")
+        tasks_file: Uploaded Excel file with task definitions
+        competency_matrix: Optional list of competency dicts for open questions
+        assessment_info: Optional assessment context info
     
     Returns:
-        List of payload dicts ready to send to API (one payload per email per task type)
+        Dict mapping email -> CombinedAssessmentRequest payload
     """
     # Merge dataframes from uploaded files
-    df_merged = await df_from_files(file1, file2)
+    df_merged = await df_from_files(participants_results_file, tasks_file)
     
     # Split by email at the top level
     emails = df_merged["Email"].unique()
@@ -287,26 +208,49 @@ async def process_all_inputs(file1, file2):
         # Filter data for this specific email
         df_one_email = df_merged[df_merged["Email"] == email]
         
+        # Get user info from first row
+        first_row = df_one_email.iloc[0]
+        user_name = safe_value(first_row.get("Имя"), email)
+        position_title = safe_value(first_row.get("Позиция"), "")
+        
         # Prepare filtered dataframes for each task type
         df_statements = df_one_email[df_one_email['Название главы'] == 'Быстрая самооценка']
         df_dilemmas = df_one_email[df_one_email['Название главы'] == 'Дилеммы']
         df_situations = df_one_email[df_one_email['Название главы'] == 'Ситуационные кейсы']
         df_open = df_one_email[df_one_email['Название главы'] == 'Открытые вопросы']
         
-        # Process each task type concurrently for this email
-        tasks = []
-        if not df_statements.empty:
-            tasks.append(process_statement_inputs(df_statements))
-        if not df_dilemmas.empty:
-            tasks.append(process_dilemma_inputs(df_dilemmas))
-        if not df_situations.empty:
-            tasks.append(process_situation_inputs(df_situations))
-        if not df_open.empty:
-            tasks.append(process_open_question_inputs(df_open))
+        # Build CombinedAssessmentRequest structure
+        combined_request = {
+            "user_email": email,
+            "user_name": user_name,
+            "position_title": position_title,
+            "assessment_info": assessment_info,
+            "webhook_url": "https://ntfy.sh/assessment",
+            "open_questions": None,
+            "statements": None,
+            "dilemmas": None,
+        }
         
-        # Gather results for this email
-        if tasks:
-            email_payloads = await asyncio.gather(*tasks)
-            all_payloads[email] = email_payloads
+        # Process each task type
+        if not df_statements.empty:
+            statements_data = await process_statement_inputs(df_statements)
+            combined_request["statements"] = statements_data
+        
+        if not df_dilemmas.empty:
+            dilemmas_data = await process_dilemma_inputs(df_dilemmas)
+            combined_request["dilemmas"] = dilemmas_data
+        
+        if not df_situations.empty:
+            situations_data = await process_situation_inputs(df_situations)
+            # Situational cases can be treated as dilemmas or separate
+            if combined_request["dilemmas"] is None:
+                combined_request["dilemmas"] = {"dilemmas": []}
+            combined_request["dilemmas"]["dilemmas"].extend(situations_data.get("situations", []))
+        
+        if not df_open.empty:
+            open_data = await process_open_question_inputs(df_open, competency_matrix)
+            combined_request["open_questions"] = open_data
+        
+        all_payloads[email] = combined_request
     
     return all_payloads
