@@ -93,18 +93,18 @@ def validate_competency_data(df_competency: pd.DataFrame, df_qa: pd.DataFrame):
     matrix_name_set = set(matrix_names[matrix_names != ''])
 
     missing_in_matrix = sorted(qa_competency_names - matrix_name_set)
-    missing_in_qa = sorted(matrix_name_set - qa_competency_names)
+    # missing_in_qa = sorted(matrix_name_set - qa_competency_names)
 
     if missing_in_matrix:
         errors.append(
             "В таблице ответов найдены компетенции без соответствий в матрице: "
             + ", ".join(missing_in_matrix)
         )
-    if missing_in_qa:
-        errors.append(
-            "В матрице компетенций есть названия, которых нет в таблице ответов: "
-            + ", ".join(missing_in_qa)
-        )
+    # if missing_in_qa:
+    #     errors.append(
+    #         "В матрице компетенций есть названия, которых нет в таблице ответов: "
+    #         + ", ".join(missing_in_qa)
+    #     )
 
     if errors:
         raise ValueError("\n".join(errors))

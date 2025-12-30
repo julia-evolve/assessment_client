@@ -2,11 +2,12 @@ import streamlit as st
 from pathlib import Path
 from assessment_client.modules.api_client import send_to_assessment_api
 from assessment_client.modules.config import EVAL_TYPE_KEYS
-from assessment_client.modules.processing import process_excel_files
+from assessment_client.modules.processing import process_all_inputs
+from assessment_client.modules.utils import download_example_button
+import asyncio
 
 
-
-def render():
+async def render():
     st.title("Assessment Report")
     st.write("Звгрузите два Excel файла для обработки и отправки данных на API оценки.")
     
@@ -15,8 +16,8 @@ def render():
     api_url = st.sidebar.selectbox(
         "Assessment API URL",
         options=[
-            "https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
-            "http://localhost:8000/evaluate_open_assessments",
+            "https://evolveaiserver-production.up.railway.app/evaluate_combined_assessment",
+            "http://host.docker.internal:8000/evaluate_combined_assessment",
             "Custom"
         ],
         index=0,
@@ -25,7 +26,7 @@ def render():
     if api_url == "Custom":
         api_url = st.sidebar.text_input(
             "Custom API URL",
-            value="https://evolveaiserver-production.up.railway.app/evaluate_open_assessments",
+            value="https://evolveaiserver-production.up.railway.app/evaluate_combined_assessment",
             help="Enter the API endpoint URL"
         )
 
@@ -47,65 +48,55 @@ def render():
     
     col1, col2 = st.columns(2)
     
+    col1, col2 = st.columns(2)
     with col1:
-        st.subheader("Матрица компетенций")
-        st.write("Ожидаемые столбцы:")
-        st.write("[name, description, level_0, level_1, level_2, level_3]")
-        st.caption("🚫 В колонке name нельзя использовать запятые или текст в скобках.")
-        
-        # Download example button
-        example_file_path = Path("examples/matrix_example.xlsx")
-        if not example_file_path.exists():
-            example_file_path = Path("src/assessment_client/examples/matrix_example.xlsx")
-        if example_file_path.exists():
-            with open(example_file_path, "rb") as f:
-                st.download_button(
-                    label="📥 Скачать пример",
-                    data=f,
-                    file_name="matrix_example.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-        
-        file1 = st.file_uploader(
-            "Выберите Excel файл матрицы компетенций",
-            type=['xlsx', 'xls'],
-            key="file1"
+        st.write("Таблица c вопросами и ответами")
+        download_example_button(
+            "src/assessment_client/examples/stat_raw_example.xlsx",
+            file_name="stat_raw_example.xlsx"
         )
-    
+        answers_file = st.file_uploader(
+            "Выберите Excel файл с утверждениями для проверки",
+            type=['xlsx'],
+            key="answers_file"
+        )
     with col2:
-        st.subheader("Вопросы и ответы")
-        st.write("Ожидаемые столбцы:")
-        st.write("[Email, Name, Позиция, Вопрос, Ответ участника, Компетенции]")
-        st.caption("🚫 В колонке 'Компетенции' не допускается текст в скобках.")
-        
-        # Download example button
-        example_file_path = Path("examples/qa_example.xlsx")
-        if not example_file_path.exists():
-            example_file_path = Path("src/assessment_client/examples/qa_example.xlsx")
-        if example_file_path.exists():
-            with open(example_file_path, "rb") as f:
-                st.download_button(
-                    label="📥 Скачать пример",
-                    data=f,
-                    file_name="qa_example.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-        
-        file2 = st.file_uploader(
-            "Выберите Excel файл с вопросами и ответами",
-            type=['xlsx', 'xls'],
-            key="file2"
+        st.write("Таблица с расшифровкой компетенций")
+        download_example_button(
+            "src/assessment_client/examples/stat_logic_example.xlsx",
+            file_name="stat_logic_example.xlsx"
         )
+        tasks_file = st.file_uploader(
+            "Выберите Excel файл с расшифровкой компетенций",
+            type=['xlsx'],
+            key="tasks_file"
+        )
+    st.subheader("Матрица компетенций")
+    st.caption("🚫 В колонке name нельзя использовать запятые или текст в скобках.")
     
+    download_example_button(
+            "src/assessment_client/examples/matrix_example.xlsx",
+            file_name="competency_matrix_example.xlsx"
+        )
+    competency_file = st.file_uploader(
+            "Выберите Excel файл с матрицей компетенций",
+            type=['xlsx'],
+            key="competency_file"
+        )
     # Upload button
     if st.button("Отправить", type="primary"):
-        if file1 is None or file2 is None:
-            st.error("Пожалуйста, загрузите оба файла перед отправкой.")
+        if answers_file is None or tasks_file is None or competency_file is None:
+            st.error("Пожалуйста, загрузите все три файла перед отправкой.")
         else:
             with st.spinner("Обработка файлов..."):
                 try:
                     # Process the Excel files
-                    results = process_excel_files(file1, file2, evaluation_type, assessment_info)
+                    results = await process_all_inputs(
+                        participants_results_file=answers_file,
+                        tasks_file=tasks_file,
+                        competency_matrix=competency_file,
+                        assessment_info=assessment_info
+                    )
                     
                     if not results:
                         st.warning("No data found to process. Please check that your Excel files have an 'email' column.")
@@ -169,4 +160,4 @@ def render():
 
 if __name__ == "__main__":
     # When Streamlit runs this file directly from the pages menu, render the page.
-    render()
+    asyncio.run(render())
