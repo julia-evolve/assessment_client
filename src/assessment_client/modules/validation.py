@@ -3,6 +3,14 @@ import streamlit as st
 import re
 
 
+def clean_text(text: str) -> str:
+    if text is None:
+        return ''
+    # Remove leading/trailing whitespace and replace multiple spaces with a single space
+    cleaned = re.sub(r'\s+', ' ', str(text)).strip()
+    cleaned = cleaned.replace('_x000D_', '')
+    return cleaned
+
 def normalize_spaces(text: str) -> str:
     if text is None:
         return ''

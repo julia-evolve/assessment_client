@@ -1,13 +1,14 @@
 import tempfile
 from pathlib import Path
 import asyncio
+from typing import Dict, List
 
 import pandas as pd
 import json
 import numpy as np
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
-from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, validate_competency_data
+from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text
 
 
 def safe_value(value, default=None):
@@ -126,7 +127,7 @@ async def df_from_files(participants_results_file, tasks_file):
         )
     return merged_df
 
-async def process_statement_inputs(df_statements_one_email):
+async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
     """
     Process statements for a single email.
     
@@ -134,22 +135,20 @@ async def process_statement_inputs(df_statements_one_email):
         df_statements_one_email: DataFrame filtered for one email and 'Быстрая самооценка' chapter
     
     Returns:
-        Dict with 'statements' list matching StatementsData contract
+        List of dicts matching StatementsData contract
     """
     statements = []
     for _, col in df_statements_one_email.iterrows():
         statement_request = dict(
-            id=safe_value(col["№"]),
-            email=safe_value(col["Email"], ""),
             question=safe_value(col["Вопрос"], ""),
             eval_type=safe_value(col["Тип оценки"], ""),
             competency=safe_value(col["Компетенции"], ""),
             answer=safe_value(col["Ответ участника"], ""),
         )
         statements.append(statement_request)
-    return {"statements": statements}
+    return statements
 
-async def process_dilemma_inputs(df_dilemma_one_email):
+async def process_dilemma_inputs(df_dilemma_one_email) -> List[Dict]:
     """
     Process dilemmas for a single email.
     
@@ -157,55 +156,38 @@ async def process_dilemma_inputs(df_dilemma_one_email):
         df_dilemma_one_email: DataFrame filtered for one email and 'Дилеммы' chapter
     
     Returns:
-        Dict with 'dilemmas' list matching DilemmasData contract
+        List of dicts matching DilemmasData contract
     """
     dilemmas = []
     for _, col in df_dilemma_one_email.iterrows():
         dilemma_request = dict(
-            id=str(safe_value(col["№"], "")),
-            email=safe_value(col["Email"], ""),
             question=safe_value(col["Вопрос"], ""),
             competency=safe_value(col["Компетенции"], ""),
             indicators=safe_value(col["Индикаторы"], ""),
             answer=safe_value(col["Ответ участника"], ""),
         )
         dilemmas.append(dilemma_request)
-    return {"dilemmas": dilemmas}
+    return dilemmas
 
-async def process_situation_inputs(df_situation_one_email):
-    """
-    Process situational cases for a single email.
-    
-    Args:
-        df_situation_one_email: DataFrame filtered for one email and 'Ситуационные кейсы' chapter
-    
-    Returns:
-        Dict with 'situations' list matching contract
-    """
-    situations = []
-    for _, col in df_situation_one_email.iterrows():
-        situation_request = dict(
-            id=str(safe_value(col["№"], "")),
-            email=safe_value(col["Email"], ""),
-            question=safe_value(col["Вопрос"], ""),
-            competency=safe_value(col["Компетенции"], ""),
-            indicators=safe_value(col["Индикаторы"], ""),
-            answer=safe_value(col["Ответ участника"], ""),
-        )
-        situations.append(situation_request)
-    return {"situations": situations}
+# async def process_situation_inputs(df_situation_one_email) -> List[Dict]:
+#     situations = []
+#     for _, col in df_situation_one_email.iterrows():
+#         situation_request = dict(
+#             question=safe_value(col["Вопрос"], ""),
+#             competency=safe_value(col["Компетенции"], ""),
+#             indicators=safe_value(col["Индикаторы"], ""),
+#             answer=safe_value(col["Ответ участника"], ""),
+#         )
+#         situations.append(situation_request)
+#     return situations
 
-async def process_open_question_inputs(df_open_one_email, competency_matrix=None, assessment_type="external"):
+async def process_open_question_inputs(df_open_one_email) -> List[Dict]:
     """
     Process open questions for a single email.
-    
     Args:
-        df_open_one_email: DataFrame filtered for one email and 'Открытые вопросы' chapter
-        competency_matrix: List of competency dicts (optional)
-        assessment_type: Type of assessment (default: "external")
-    
+        df_open_one_email: DataFrame filtered for one email and 'Открытые вопросы' chapter    
     Returns:
-        Dict with 'competency_matrix', 'questions_and_answers', 'assessment_type' matching OpenQuestionsData contract
+        List of dicts matching OpenQuestionsData contract
     """
     questions_and_answers = []
     for _, col in df_open_one_email.iterrows():
@@ -220,11 +202,7 @@ async def process_open_question_inputs(df_open_one_email, competency_matrix=None
         )
         questions_and_answers.append(qa_entry)
     
-    return {
-        "competency_matrix": competency_matrix or [],
-        "questions_and_answers": questions_and_answers,
-        "assessment_type": assessment_type
-    }
+    return questions_and_answers
 
 async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info=""):
     """
@@ -259,12 +237,16 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
         first_row = df_one_email.iloc[0]
         user_name = safe_value(first_row.get("Имя"), email)
         position_title = safe_value(first_row.get("Позиция"), "")
+        df_one_email["Название главы"] = df_one_email["Название главы"].fillna('').astype(str).map(normalize_spaces)
+        df_one_email["Ответ участника"] = df_one_email["Ответ участника"].fillna('').astype(str).map(clean_text)
         
         # Prepare filtered dataframes for each task type
         df_statements = df_one_email[df_one_email['Название главы'] == 'Быстрая самооценка']
         df_dilemmas = df_one_email[df_one_email['Название главы'] == 'Дилеммы']
         df_situations = df_one_email[df_one_email['Название главы'] == 'Ситуационные кейсы']
         df_open = df_one_email[df_one_email['Название главы'] == 'Открытые вопросы']
+
+        df_open = pd.concat([df_situations, df_open], ignore_index=True)
         
         # Build CombinedAssessmentRequest structure
         combined_request = {
@@ -273,6 +255,8 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             "position_title": position_title,
             "assessment_info": assessment_info,
             "webhook_url": "https://ntfy.sh/assessment",
+            "competency_matrix": competency_matrix,
+            "assessment_type": "external",
             "open_questions": None,
             "statements": None,
             "dilemmas": None,
@@ -287,17 +271,18 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             dilemmas_data = await process_dilemma_inputs(df_dilemmas)
             combined_request["dilemmas"] = dilemmas_data
         
-        if not df_situations.empty:
-            situations_data = await process_situation_inputs(df_situations)
-            # Situational cases can be treated as dilemmas or separate
-            if combined_request["dilemmas"] is None:
-                combined_request["dilemmas"] = {"dilemmas": []}
-            combined_request["dilemmas"]["dilemmas"].extend(situations_data.get("situations", []))
+        # if not df_situations.empty:
+        #     situations_data = await process_situation_inputs(df_situations)
+        #     # Situational cases can be treated as dilemmas or separate
+        #     if combined_request["dilemmas"] is None:
+        #         combined_request["dilemmas"] = {"dilemmas": []}
+        #     combined_request["dilemmas"]["dilemmas"].extend(situations_data.get("situations", []))
         
         if not df_open.empty:
-            open_data = await process_open_question_inputs(df_open, competency_matrix)
+            open_data = await process_open_question_inputs(df_open)
             combined_request["open_questions"] = open_data
         
         all_payloads[email] = combined_request
+        break
     
     return all_payloads
