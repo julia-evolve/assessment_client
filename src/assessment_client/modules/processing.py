@@ -32,6 +32,48 @@ def safe_value(value, default=None):
     return value
 
 
+def process_competency_file(competency_file):
+    """
+    Process a competency matrix Excel file and return a list of competency dicts.
+    
+    Args:
+        competency_file: Uploaded Excel file with competency matrix
+        
+    Returns:
+        List of competency dicts with name, description, and levels
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        competency_path = Path(temp_dir) / competency_file.name
+        with open(competency_path, 'wb') as f:
+            f.write(competency_file.getbuffer())
+        
+        df_competency = pd.read_excel(competency_path)
+    
+    df_competency = drop_rows_with_nan(df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций")
+    
+    competency_matrix = []
+    level_columns = [col for col in df_competency.columns if col.startswith('level_')]
+    
+    for _, row in df_competency.iterrows():
+        normalized_name = normalize_spaces(row['name']) if 'name' in row else ''
+        competency = {
+            "name": normalized_name,
+            "description": str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
+            "levels": []
+        }
+        
+        for level_col in level_columns:
+            if level_col in row and pd.notna(row[level_col]) and str(row[level_col]).strip():
+                competency["levels"].append({
+                    "name": level_col,
+                    "description": str(row[level_col]).strip()
+                })
+        
+        competency_matrix.append(competency)
+    
+    return competency_matrix
+
+
 async def df_from_files(participants_results_file, tasks_file):
     with tempfile.TemporaryDirectory() as temp_dir:
         participants_path = Path(temp_dir) / participants_results_file.name
@@ -184,14 +226,14 @@ async def process_open_question_inputs(df_open_one_email, competency_matrix=None
         "assessment_type": assessment_type
     }
 
-async def process_all_inputs(participants_results_file, tasks_file, competency_matrix=None, assessment_info=""):
+async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info=""):
     """
     Process uploaded files and return CombinedAssessmentRequest payloads per email.
     
     Args:
         participants_results_file: Uploaded Excel file with raw data (sheet: "Результаты участников")
         tasks_file: Uploaded Excel file with task definitions
-        competency_matrix: Optional list of competency dicts for open questions
+        competency_file: Optional uploaded Excel file with competency matrix
         assessment_info: Optional assessment context info
     
     Returns:
@@ -199,6 +241,11 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_m
     """
     # Merge dataframes from uploaded files
     df_merged = await df_from_files(participants_results_file, tasks_file)
+    
+    # Process competency file if provided
+    competency_matrix = None
+    if competency_file is not None:
+        competency_matrix = process_competency_file(competency_file)
     
     # Split by email at the top level
     emails = df_merged["Email"].unique()

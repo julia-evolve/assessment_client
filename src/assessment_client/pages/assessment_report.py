@@ -94,7 +94,7 @@ async def render():
                     results = await process_all_inputs(
                         participants_results_file=answers_file,
                         tasks_file=tasks_file,
-                        competency_matrix=competency_file,
+                        competency_file=competency_file,
                         assessment_info=assessment_info
                     )
                     
@@ -107,7 +107,7 @@ async def render():
                         progress_bar = st.progress(0)
                         status_container = st.container()
                         
-                        for idx, (email, payload) in enumerate(results):
+                        for idx, (email, payload) in enumerate(results.items()):
                             with status_container:
                                 st.write(f"Processing email: {email}")
                                 
