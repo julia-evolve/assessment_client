@@ -47,7 +47,7 @@ def render():
             st.session_state['typical_case_count'] = 1
             st.session_state['language'] = 'ru'
             st.session_state['target_audience'] = 'Менеджеры по продажам'
-            st.session_state['assessment_goal'] = config.AssessmentGoal.IPR_UPDATE.value
+            st.session_state['assessment_goal'] = config.AssessmentGoal.CANDIDATE_SELECTION_FOR_POSITION.value
             st.session_state['frequency'] = config.AssessmentFrequency.ONE_TIME.value
             st.session_state['company_name'] = 'ООО Пример'
             st.session_state['audience_description'] = 'Требования: опыт работы 1-3 года в продажах'

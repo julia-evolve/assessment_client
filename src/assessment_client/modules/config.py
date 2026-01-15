@@ -8,19 +8,18 @@ from enum import Enum
 
 
 class AssessmentGoal(str, Enum):
-    IPR_UPDATE = "Срез уровня сотрудников для обновления ИПР"
-    POTENTIAL_REVIEW = "Оценка потенциала для пересмотра роли или ЗП"
-    CANDIDATE_SELECTION = "Отбор кандидата на должность"
-
+    LEVEL_ASSESSMENT_FOR_IDP_UPDATE = "level_assessment_for_idp_update"
+    EMPLOYEE_POTENTIAL_FOR_ROLE_SALARY_REVIEW = "employee_potential_for_role_salary_review"
+    CANDIDATE_SELECTION_FOR_POSITION = "candidate_selection_for_position"
 
 # Backwards-compatible list of (key, label) tuples used by the UI
 ASSESSMENT_GOALS = [goal.value for goal in AssessmentGoal]
 
 class AssessmentFrequency(str, Enum):
-    ONE_TIME = "Единоразово"
-    QUARTERLY = "1 раз в квартал"
-    HALF_YEAR = "1 раз в полгода"
-    YEARLY = "1 раз в год"
+    ONCE_A_YEAR = "once_a_year"
+    EVERY_SIX_MONTHS = "every_six_months"
+    ONCE_A_QUARTER = "once_a_quarter"
+    ONE_TIME = "one_time"
 
 
 # Backwards-compatible list of (key, label) tuples for the UI
