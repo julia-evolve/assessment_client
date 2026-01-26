@@ -283,6 +283,6 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             combined_request["open_questions"] = open_data
         
         all_payloads[email] = combined_request
-        # break
+        break
     
     return all_payloads
