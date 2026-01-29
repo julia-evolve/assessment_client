@@ -62,7 +62,7 @@ pytest tests/
 
 ## API Integration
 - Default endpoint: `https://evolveaiserver-production.up.railway.app/`
-- Two main endpoints: `/competencies_matrix`, `/evaluate_combined_assessment`
+- Two main endpoints: `/competencies_matrix`, `/evaluate_assessment`
 - Timeout: 120 seconds (long-running AI processing)
 - Notification webhook: `https://ntfy.sh/assessment`
 

@@ -16,8 +16,8 @@ async def render():
     api_url = st.sidebar.selectbox(
         "Assessment API URL",
         options=[
-            "https://evolveaiserver-production.up.railway.app/evaluate_combined_assessment",
-            "http://host.docker.internal:8000/evaluate_combined_assessment",
+            "https://evolveaiserver-production.up.railway.app/evaluate_assessment",
+            "http://host.docker.internal:8000/evaluate_assessment",
             "Custom"
         ],
         index=0,
@@ -26,11 +26,11 @@ async def render():
     if api_url == "Custom":
         api_url = st.sidebar.text_input(
             "Custom API URL",
-            value="https://evolveaiserver-production.up.railway.app/evaluate_combined_assessment",
+            value="https://evolveaiserver-production.up.railway.app/evaluate_assessment",
             help="Enter the API endpoint URL"
         )
 
-    evaluation_type = st.selectbox(
+    assessment_type = st.selectbox(
         "Тип оценки",
         options=EVAL_TYPE_KEYS,
         index=0,
@@ -95,7 +95,8 @@ async def render():
                         participants_results_file=answers_file,
                         tasks_file=tasks_file,
                         competency_file=competency_file,
-                        assessment_info=assessment_info
+                        assessment_info=assessment_info,
+                        assessment_type=assessment_type
                     )
                     
                     if not results:
