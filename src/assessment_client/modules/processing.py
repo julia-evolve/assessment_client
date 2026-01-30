@@ -127,6 +127,7 @@ async def df_from_files(participants_results_file, tasks_file):
         )
     return merged_df
 
+
 async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
     """
     Process statements for a single email.
@@ -148,6 +149,54 @@ async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
         statements.append(statement_request)
     return statements
 
+async def process_mini_case_inputs(df_mini_cases_one_email) -> List[Dict]:
+    """
+    Process mini cases for a single email.
+    Args:
+        df_mini_cases_one_email: DataFrame filtered for one email and 'Мини кейсы' chapter
+    Returns:
+        List of dicts matching MiniCase contract
+    """
+    mini_cases = []
+    for _, col in df_mini_cases_one_email.iterrows():
+        competencies_value = safe_value(col["Компетенции"], "")
+        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
+        indicators_value = safe_value(col["Индикаторы"], "")
+        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
+
+        mini_case = dict(
+            mini_case=safe_value(col["Вопрос"], ""),
+            competencies=competencies_list,
+            indicators=indicators_list,
+            answer=safe_value(col["Ответ участника"], ""),
+        )
+        mini_cases.append(mini_case)
+    return mini_cases
+
+async def process_big_case_inputs(df_big_cases_one_email) -> List[Dict]:
+    """
+    Process big cases for a single email.
+    Args:
+        df_big_cases_one_email: DataFrame filtered for one email and 'Большие кейсы' chapter
+    Returns:
+        List of dicts matching BigCase contract
+    """
+    big_cases = []
+    for _, col in df_big_cases_one_email.iterrows():
+        competencies_value = safe_value(col["Компетенции"], "")
+        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
+        indicators_value = safe_value(col["Индикаторы"], "")
+        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
+
+        big_case = dict(
+            big_case=safe_value(col["Вопрос"], ""),
+            competencies=competencies_list,
+            indicators=indicators_list,
+            answer=safe_value(col["Ответ участника"], ""),
+        )
+        big_cases.append(big_case)
+    return big_cases
+
 async def process_dilemma_inputs(df_dilemma_one_email) -> List[Dict]:
     """
     Process dilemmas for a single email.
@@ -160,26 +209,19 @@ async def process_dilemma_inputs(df_dilemma_one_email) -> List[Dict]:
     """
     dilemmas = []
     for _, col in df_dilemma_one_email.iterrows():
+        competencies_value = safe_value(col["Компетенции"], "")
+        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
+        indicators_value = safe_value(col["Индикаторы"], "")
+        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
+
         dilemma_request = dict(
-            question=safe_value(col["Вопрос"], ""),
-            competency=safe_value(col["Компетенции"], ""),
-            indicators=safe_value(col["Индикаторы"], ""),
+            dilemma=safe_value(col["Вопрос"], ""),
+            competencies=competencies_list,
+            indicators=indicators_list,
             answer=safe_value(col["Ответ участника"], ""),
         )
         dilemmas.append(dilemma_request)
     return dilemmas
-
-# async def process_situation_inputs(df_situation_one_email) -> List[Dict]:
-#     situations = []
-#     for _, col in df_situation_one_email.iterrows():
-#         situation_request = dict(
-#             question=safe_value(col["Вопрос"], ""),
-#             competency=safe_value(col["Компетенции"], ""),
-#             indicators=safe_value(col["Индикаторы"], ""),
-#             answer=safe_value(col["Ответ участника"], ""),
-#         )
-#         situations.append(situation_request)
-#     return situations
 
 async def process_open_question_inputs(df_open_one_email) -> List[Dict]:
     """
@@ -192,19 +234,21 @@ async def process_open_question_inputs(df_open_one_email) -> List[Dict]:
     questions_and_answers = []
     for _, col in df_open_one_email.iterrows():
         competencies_value = safe_value(col["Компетенции"], "")
-        # Parse competencies as comma-separated list
         competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
-        
+        indicators_value = safe_value(col["Индикаторы"], "")
+        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
+
         qa_entry = dict(
             question=safe_value(col["Вопрос"], ""),
             answer=safe_value(col["Ответ участника"], ""),
             competencies=competencies_list,
+            indicators=indicators_list,
         )
         questions_and_answers.append(qa_entry)
     
     return questions_and_answers
 
-async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info=""):
+async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info="", assessment_type="external") -> Dict[str, Dict]:
     """
     Process uploaded files and return CombinedAssessmentRequest payloads per email.
     
@@ -242,12 +286,11 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
         
         # Prepare filtered dataframes for each task type
         df_statements = df_one_email[df_one_email['Название главы'] == 'Быстрая самооценка']
+        df_open_questions = df_one_email[df_one_email['Название главы'] == 'Открытые вопросы']
         df_dilemmas = df_one_email[df_one_email['Название главы'] == 'Дилеммы']
-        df_situations = df_one_email[df_one_email['Название главы'] == 'Ситуационные кейсы']
-        df_open = df_one_email[df_one_email['Название главы'] == 'Открытые вопросы']
+        df_mini_cases = df_one_email[df_one_email['Название главы'] == 'Мини кейсы']
+        df_big_cases = df_one_email[df_one_email['Название главы'] == 'Большие кейсы']
 
-        df_open = pd.concat([df_situations, df_open], ignore_index=True)
-        
         # Build CombinedAssessmentRequest structure
         combined_request = {
             "user_email": email,
@@ -256,10 +299,12 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             "assessment_info": assessment_info,
             "webhook_url": "https://ntfy.sh/assessment",
             "competency_matrix": competency_matrix,
-            "assessment_type": "external",
+            "assessment_type": assessment_type,
             "open_questions": None,
             "statements": None,
             "dilemmas": None,
+            "mini_cases": None,
+            "big_cases": None,
         }
         
         # Process each task type
@@ -270,19 +315,20 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
         if not df_dilemmas.empty:
             dilemmas_data = await process_dilemma_inputs(df_dilemmas)
             combined_request["dilemmas"] = dilemmas_data
-        
-        # if not df_situations.empty:
-        #     situations_data = await process_situation_inputs(df_situations)
-        #     # Situational cases can be treated as dilemmas or separate
-        #     if combined_request["dilemmas"] is None:
-        #         combined_request["dilemmas"] = {"dilemmas": []}
-        #     combined_request["dilemmas"]["dilemmas"].extend(situations_data.get("situations", []))
-        
-        if not df_open.empty:
-            open_data = await process_open_question_inputs(df_open)
+
+        if not df_open_questions.empty:
+            open_data = await process_open_question_inputs(df_open_questions)
             combined_request["open_questions"] = open_data
+
+        if not df_mini_cases.empty:
+            mini_cases_data = await process_mini_case_inputs(df_mini_cases)
+            combined_request["mini_cases"] = mini_cases_data
+        
+        if not df_big_cases.empty:
+            big_cases_data = await process_big_case_inputs(df_big_cases)
+            combined_request["big_cases"] = big_cases_data
         
         all_payloads[email] = combined_request
-        break
+        # break
     
     return all_payloads
