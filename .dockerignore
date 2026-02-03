@@ -30,3 +30,12 @@ temp/
 # Docker
 Dockerfile
 .dockerignore
+docker-compose.yml
+
+artifacts
+in.json
+runtime.txt
+README.md
+assessment_client.egg-info
+__pycache__
+tests

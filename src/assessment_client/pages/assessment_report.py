@@ -52,8 +52,8 @@ async def render():
     with col1:
         st.write("Таблица c вопросами и ответами")
         download_example_button(
-            "src/assessment_client/examples/stat_raw_example.xlsx",
-            file_name="stat_raw_example.xlsx"
+            "src/assessment_client/examples/answers.xlsx",
+            file_name="answers.xlsx"
         )
         answers_file = st.file_uploader(
             "Выберите Excel файл с утверждениями для проверки",
@@ -63,8 +63,8 @@ async def render():
     with col2:
         st.write("Таблица с расшифровкой компетенций")
         download_example_button(
-            "src/assessment_client/examples/stat_logic_example.xlsx",
-            file_name="stat_logic_example.xlsx"
+            "src/assessment_client/examples/logic.xlsx",
+            file_name="logic.xlsx"
         )
         tasks_file = st.file_uploader(
             "Выберите Excel файл с расшифровкой компетенций",
@@ -75,8 +75,8 @@ async def render():
     st.caption("🚫 В колонке name нельзя использовать запятые или текст в скобках.")
     
     download_example_button(
-            "src/assessment_client/examples/matrix_example.xlsx",
-            file_name="competency_matrix_example.xlsx"
+            "src/assessment_client/examples/matrix.xlsx",
+            file_name="competency_matrix.xlsx"
         )
     competency_file = st.file_uploader(
             "Выберите Excel файл с матрицей компетенций",

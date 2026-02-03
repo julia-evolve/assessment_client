@@ -90,7 +90,7 @@ async def df_from_files(participants_results_file, tasks_file):
         df2 = pd.read_excel(tasks_path)
 
     cols_answers = [
-        'Имя',
+        'ФИО',
         'Email',
         'Название главы',
         'Название задания',
@@ -100,7 +100,6 @@ async def df_from_files(participants_results_file, tasks_file):
     df_answers_filtered = df1[cols_answers]
 
     cols_tasks = [
-        '№',
         'Название задания',
         'Вопрос',
         'Тип оценки',
@@ -279,7 +278,7 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
         
         # Get user info from first row
         first_row = df_one_email.iloc[0]
-        user_name = safe_value(first_row.get("Имя"), email)
+        user_name = safe_value(first_row.get("ФИО"), email)
         position_title = safe_value(first_row.get("Позиция"), "")
         df_one_email["Название главы"] = df_one_email["Название главы"].fillna('').astype(str).map(normalize_spaces)
         df_one_email["Ответ участника"] = df_one_email["Ответ участника"].fillna('').astype(str).map(clean_text)
