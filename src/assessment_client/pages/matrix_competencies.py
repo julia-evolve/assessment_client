@@ -82,66 +82,70 @@ def render():
             for i in range(5):
                 st.session_state.pop(f'case_{i}', None)
 
-    with st.form("matrix_request_form"):
-        col1, col2 = st.columns(2)
-        with col1:
-            language = st.selectbox("Язык отчёта", config.LANGUAGE_OPTIONS, index=0, key='language')
-            target_audience = st.text_input("Целевая аудитория", placeholder="Менеджеры по продажам", key='target_audience')
-            assessment_goal = st.selectbox(
-                "Цель ассессмента",
-                options=config.ASSESSMENT_GOALS,
-                # key='assessment_goal'
-            )
-        with col2:
-            frequency = st.selectbox(
-                "Частота ассессмента",
-                options=config.ASSESSMENT_FREQUENCIES
-            )
-            company_name = st.text_input("Название компании", placeholder="ООО Пример", key='company_name')
-
-        audience_description = st.text_area("Требования к участникам", height=100, key='audience_description')
-        company_values_and_tone = st.text_area("Ценности и тон коммуникации", height=100, key='company_values_and_tone')
-        customer_pain_points = st.text_area("Боли заказчика и причины обращения", height=120, key='customer_pain_points')
-
-        st.subheader("Компетенции и веса")
-        competency_count = st.number_input(
-            "Количество компетенций", min_value=1, max_value=20, step=1, value=3, key='competency_count'
+    # Main fields
+    col1, col2 = st.columns(2)
+    with col1:
+        language = st.selectbox("Язык отчёта", config.LANGUAGE_OPTIONS, index=0, key='language')
+        target_audience = st.text_input("Целевая аудитория", placeholder="Менеджеры по продажам", key='target_audience')
+        assessment_goal = st.selectbox(
+            "Цель ассессмента",
+            options=config.ASSESSMENT_GOALS,
+            key='assessment_goal'
         )
-        competency_inputs = []
-        for idx in range(int(competency_count)):
-            with st.expander(f"Компетенция {idx + 1}", expanded=idx < 2):
-                name = st.text_input(
-                    f"Название компетенции #{idx + 1}",
-                    key=f"comp_name_{idx}"
-                )
-                weight = st.number_input(
-                    f"Вес компетенции #{idx + 1}",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=10.0,
-                    key=f"comp_weight_{idx}"
-                )
-                description = st.text_area(
-                    f"Описание компетенции #{idx + 1}",
-                    height=80,
-                    key=f"comp_desc_{idx}"
-                )
-                competency_inputs.append((name, weight, description))
-
-        st.subheader("Типичные кейсы")
-        typical_case_count = st.number_input(
-            "Количество кейсов", min_value=0, max_value=5, step=1, value=1, key='typical_case_count'
+    with col2:
+        frequency = st.selectbox(
+            "Частота ассессмента",
+            options=config.ASSESSMENT_FREQUENCIES,
+            key='frequency'
         )
-        typical_cases_inputs = []
-        for idx in range(int(typical_case_count)):
-            case_value = st.text_area(
-                f"Кейс #{idx + 1}",
+        company_name = st.text_input("Название компании", placeholder="ООО Пример", key='company_name')
+
+    audience_description = st.text_area("Требования к участникам", height=100, key='audience_description')
+    company_values_and_tone = st.text_area("Ценности и тон коммуникации", height=100, key='company_values_and_tone')
+    customer_pain_points = st.text_area("Боли заказчика и причины обращения", height=120, key='customer_pain_points')
+
+    # Competencies section
+    st.subheader("Компетенции и веса")
+    competency_count = st.number_input(
+        "Количество компетенций", min_value=1, max_value=20, step=1, value=3, key='competency_count'
+    )
+    competency_inputs = []
+    for idx in range(int(competency_count)):
+        with st.expander(f"Компетенция {idx + 1}", expanded=idx < 2):
+            name = st.text_input(
+                f"Название компетенции #{idx + 1}",
+                key=f"comp_name_{idx}"
+            )
+            weight = st.number_input(
+                f"Вес компетенции #{idx + 1}",
+                min_value=0.0,
+                max_value=100.0,
+                value=10.0,
+                key=f"comp_weight_{idx}"
+            )
+            description = st.text_area(
+                f"Описание компетенции #{idx + 1}",
                 height=80,
-                key=f"case_{idx}"
+                key=f"comp_desc_{idx}"
             )
-            typical_cases_inputs.append(case_value)
+            competency_inputs.append((name, weight, description))
 
-        submitted = st.form_submit_button("Отправить заявку")
+    # Cases section
+    st.subheader("Типичные кейсы")
+    typical_case_count = st.number_input(
+        "Количество кейсов", min_value=0, max_value=5, step=1, value=1, key='typical_case_count'
+    )
+    typical_cases_inputs = []
+    for idx in range(int(typical_case_count)):
+        case_value = st.text_area(
+            f"Кейс #{idx + 1}",
+            height=80,
+            key=f"case_{idx}"
+        )
+        typical_cases_inputs.append(case_value)
+
+    st.divider()
+    submitted = st.button("Отправить заявку", type="primary")
 
     normalized_target_audience = None
     normalized_company_name = None
