@@ -35,43 +35,80 @@ def safe_value(value, default=None):
 
 def process_competency_file(competency_file):
     """
-    Process a competency matrix Excel file and return a list of competency dicts.
-    
-    Args:
-        competency_file: Uploaded Excel file with competency matrix
-        
+    Process a competency matrix Excel file and return a list of Competency dicts.
+
+    Each row in the spreadsheet represents one *indicator* that belongs to a
+    competency.  Rows sharing the same ``competency`` value are grouped into a
+    single Competency object whose ``indicators`` list contains all of them.
+
+    Expected columns:
+        competency, competency_description, weight,
+        indicator_name, indicator_description,
+        level_0, level_1, level_2, level_3
+
     Returns:
-        List of competency dicts with name, description, and levels
+        List[dict] – one dict per unique competency, matching the
+        ``Competency`` Pydantic model on the server.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         competency_path = Path(temp_dir) / competency_file.name
         with open(competency_path, 'wb') as f:
             f.write(competency_file.getbuffer())
-        
+
         df_competency = pd.read_excel(competency_path)
-    
-    df_competency = drop_rows_with_nan(df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций")
-    
+
+    df_competency = drop_rows_with_nan(
+        df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций"
+    )
+
+    # Normalise key text columns
+    df_competency["competency"] = (
+        df_competency["competency"].fillna("").astype(str).map(normalize_spaces)
+    )
+    df_competency["competency_description"] = (
+        df_competency["competency_description"].fillna("").astype(str).map(normalize_spaces)
+    )
+
+    level_columns = ["level_0", "level_1", "level_2", "level_3"]
+
+    # Group rows by competency name to build nested structure
     competency_matrix = []
-    level_columns = [col for col in df_competency.columns if col.startswith('level_')]
-    
+    seen_competencies: dict = {}  # name -> index in competency_matrix
+
     for _, row in df_competency.iterrows():
-        normalized_name = normalize_spaces(row['name']) if 'name' in row else ''
-        competency = {
-            "name": normalized_name,
-            "description": str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
-            "levels": []
+        comp_name = row["competency"]
+        if not comp_name:
+            continue
+
+        # Build indicator entry
+        indicator = {
+            "name": normalize_spaces(str(row.get("indicator_name", ""))),
+            "description": normalize_spaces(str(row.get("indicator_description", ""))),
+            "levels": {
+                lvl: str(row[lvl]).strip() if pd.notna(row.get(lvl)) else ""
+                for lvl in level_columns
+            },
         }
-        
-        for level_col in level_columns:
-            if level_col in row and pd.notna(row[level_col]) and str(row[level_col]).strip():
-                competency["levels"].append({
-                    "name": level_col,
-                    "description": str(row[level_col]).strip()
-                })
-        
-        competency_matrix.append(competency)
-    
+
+        if comp_name in seen_competencies:
+            idx = seen_competencies[comp_name]
+            competency_matrix[idx]["indicators"].append(indicator)
+        else:
+            weight_val = row.get("weight", 50.0)
+            try:
+                weight_val = float(weight_val)
+            except (ValueError, TypeError):
+                weight_val = 50.0
+
+            competency = {
+                "competency": comp_name,
+                "competency_description": row["competency_description"],
+                "weight": weight_val,
+                "indicators": [indicator],
+            }
+            seen_competencies[comp_name] = len(competency_matrix)
+            competency_matrix.append(competency)
+
     return competency_matrix
 
 

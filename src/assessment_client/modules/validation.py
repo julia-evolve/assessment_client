@@ -45,11 +45,11 @@ def drop_rows_with_nan(df: pd.DataFrame, required_cols, dataset_name: str) -> pd
 def validate_competency_data(df_competency: pd.DataFrame, df_qa: pd.DataFrame):
     errors = []
 
-    if 'name' not in df_competency.columns:
-        errors.append("В матрице компетенций отсутствует колонка 'name'.")
+    if 'competency' not in df_competency.columns:
+        errors.append("В матрице компетенций отсутствует колонка 'competency'.")
         matrix_names = pd.Series(dtype=str)
     else:
-        matrix_names = df_competency['name'].fillna('').astype(str).map(normalize_spaces)
+        matrix_names = df_competency['competency'].fillna('').astype(str).map(normalize_spaces)
 
         comma_mask = matrix_names.str.contains(',', regex=False)
         if comma_mask.any():
@@ -64,14 +64,14 @@ def validate_competency_data(df_competency: pd.DataFrame, df_qa: pd.DataFrame):
         if parentheses_mask.any():
             offending = matrix_names[parentheses_mask].unique().tolist()
             errors.append(
-                "В матрице компетенций уберите текст в скобках из 'name'. Найдены: "
+                "В матрице компетенций уберите текст в скобках из 'competency'. Найдены: "
                 + ", ".join(offending[:5])
                 + (" ..." if len(offending) > 5 else "")
             )
 
         empty_mask = matrix_names.eq('')
         if empty_mask.any():
-            errors.append("В матрице компетенций найдены пустые значения в колонке 'name'.")
+            errors.append("В матрице компетенций найдены пустые значения в колонке 'competency'.")
 
     if 'Компетенции' not in df_qa.columns:
         errors.append("В таблице ответов отсутствует колонка 'Компетенции'.")
