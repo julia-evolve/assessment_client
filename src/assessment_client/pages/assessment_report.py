@@ -10,7 +10,7 @@ import asyncio
 
 async def render():
     st.title("Assessment Report")
-    st.write("Звгрузите два Excel файла для обработки и отправки данных на API оценки.")
+    st.write("Загрузите два Excel файла для обработки и отправки данных на API оценки.")
     
     # Configuration section
     st.sidebar.header("Configuration")
@@ -46,8 +46,6 @@ async def render():
 
     # File upload section
     st.header("Загрузка файлов")
-    
-    col1, col2 = st.columns(2)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -144,6 +142,9 @@ async def render():
     st.divider()
     st.header("How to Use")
 
+    _examples_dir = Path(__file__).resolve().parent.parent / "examples"
+
+    @st.cache_data
     def load_columns_info(path: str) -> str:
         df = pd.read_excel(path)
         columns = df.columns.tolist()
@@ -151,8 +152,8 @@ async def render():
         columns_to_string = ", ".join(columns_to_code)
         return columns_to_string
 
-    matrix_columns = load_columns_info("src/assessment_client/examples/matrix.xlsx")
-    answers_columns = load_columns_info("src/assessment_client/examples/answers.xlsx")
+    matrix_columns = load_columns_info(str(_examples_dir / "matrix.xlsx"))
+    answers_columns = load_columns_info(str(_examples_dir / "answers.xlsx"))
     st.markdown(f"""
 ### 1. **Подготовьте Excel файлы:**
     - Файл 1 (Матрица компетенций): Должен содержать столбцы {matrix_columns}

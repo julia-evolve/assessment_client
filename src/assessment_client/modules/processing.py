@@ -1,14 +1,12 @@
 import tempfile
 from pathlib import Path
-import asyncio
 from typing import Dict, List
 
 import pandas as pd
-import json
 import numpy as np
 
-from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
-from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text
+from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS
+from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text, validate_competency_data
 
 
 def safe_value(value, default=None):
@@ -56,6 +54,13 @@ def process_competency_file(competency_file):
             f.write(competency_file.getbuffer())
 
         df_competency = pd.read_excel(competency_path)
+
+    # Forward-fill competency-level columns so grouped indicator rows
+    # don't get dropped when competency/description/weight are only in the first row
+    group_cols = ["competency", "competency_description", "weight"]
+    for col in group_cols:
+        if col in df_competency.columns:
+            df_competency[col] = df_competency[col].ffill()
 
     df_competency = drop_rows_with_nan(
         df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций"
@@ -110,6 +115,16 @@ def process_competency_file(competency_file):
             competency_matrix.append(competency)
 
     return competency_matrix
+
+
+def _read_competency_df(competency_file) -> pd.DataFrame:
+    """Read the competency Excel file into a DataFrame (reusable helper)."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        competency_path = Path(temp_dir) / competency_file.name
+        competency_file.seek(0)
+        with open(competency_path, 'wb') as f:
+            f.write(competency_file.getbuffer())
+        return pd.read_excel(competency_path)
 
 
 async def df_from_files(participants_results_file, tasks_file):
@@ -300,10 +315,14 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
     # Merge dataframes from uploaded files
     df_merged = await df_from_files(participants_results_file, tasks_file)
     
-    # Process competency file if provided
+    # Process and validate competency file
     competency_matrix = None
     if competency_file is not None:
         competency_matrix = process_competency_file(competency_file)
+
+        # Cross-validate competency names between matrix and answers
+        df_competency_raw = _read_competency_df(competency_file)
+        validate_competency_data(df_competency_raw, df_merged)
     
     # Split by email at the top level
     emails = df_merged["Email"].unique()
