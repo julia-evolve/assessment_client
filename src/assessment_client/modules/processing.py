@@ -1,14 +1,12 @@
 import tempfile
 from pathlib import Path
-import asyncio
 from typing import Dict, List
 
 import pandas as pd
-import json
 import numpy as np
 
-from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS, REQUIRED_QA_COLUMNS
-from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text
+from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS
+from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text, validate_competency_data
 
 
 def safe_value(value, default=None):
@@ -35,44 +33,98 @@ def safe_value(value, default=None):
 
 def process_competency_file(competency_file):
     """
-    Process a competency matrix Excel file and return a list of competency dicts.
-    
-    Args:
-        competency_file: Uploaded Excel file with competency matrix
-        
+    Process a competency matrix Excel file and return a list of Competency dicts.
+
+    Each row in the spreadsheet represents one *indicator* that belongs to a
+    competency.  Rows sharing the same ``competency`` value are grouped into a
+    single Competency object whose ``indicators`` list contains all of them.
+
+    Expected columns:
+        competency, competency_description, weight,
+        indicator_name, indicator_description,
+        level_0, level_1, level_2, level_3
+
     Returns:
-        List of competency dicts with name, description, and levels
+        List[dict] – one dict per unique competency, matching the
+        ``Competency`` Pydantic model on the server.
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         competency_path = Path(temp_dir) / competency_file.name
         with open(competency_path, 'wb') as f:
             f.write(competency_file.getbuffer())
-        
+
         df_competency = pd.read_excel(competency_path)
-    
-    df_competency = drop_rows_with_nan(df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций")
-    
+
+    # Forward-fill competency-level columns so grouped indicator rows
+    # don't get dropped when competency/description/weight are only in the first row
+    group_cols = ["competency", "competency_description", "weight"]
+    for col in group_cols:
+        if col in df_competency.columns:
+            df_competency[col] = df_competency[col].ffill()
+
+    df_competency = drop_rows_with_nan(
+        df_competency, REQUIRED_COMPETENCY_COLUMNS, "Матрица компетенций"
+    )
+
+    # Normalise key text columns
+    df_competency["competency"] = (
+        df_competency["competency"].fillna("").astype(str).map(normalize_spaces)
+    )
+    df_competency["competency_description"] = (
+        df_competency["competency_description"].fillna("").astype(str).map(normalize_spaces)
+    )
+
+    level_columns = ["level_0", "level_1", "level_2", "level_3"]
+
+    # Group rows by competency name to build nested structure
     competency_matrix = []
-    level_columns = [col for col in df_competency.columns if col.startswith('level_')]
-    
+    seen_competencies: dict = {}  # name -> index in competency_matrix
+
     for _, row in df_competency.iterrows():
-        normalized_name = normalize_spaces(row['name']) if 'name' in row else ''
-        competency = {
-            "name": normalized_name,
-            "description": str(row.get('description', '')).strip() if pd.notna(row.get('description')) else None,
-            "levels": []
+        comp_name = row["competency"]
+        if not comp_name:
+            continue
+
+        # Build indicator entry
+        indicator = {
+            "name": normalize_spaces(str(row.get("indicator_name", ""))),
+            "description": normalize_spaces(str(row.get("indicator_description", ""))),
+            "levels": {
+                lvl: str(row[lvl]).strip() if pd.notna(row.get(lvl)) else ""
+                for lvl in level_columns
+            },
         }
-        
-        for level_col in level_columns:
-            if level_col in row and pd.notna(row[level_col]) and str(row[level_col]).strip():
-                competency["levels"].append({
-                    "name": level_col,
-                    "description": str(row[level_col]).strip()
-                })
-        
-        competency_matrix.append(competency)
-    
+
+        if comp_name in seen_competencies:
+            idx = seen_competencies[comp_name]
+            competency_matrix[idx]["indicators"].append(indicator)
+        else:
+            weight_val = row.get("weight", 50.0)
+            try:
+                weight_val = float(weight_val)
+            except (ValueError, TypeError):
+                weight_val = 50.0
+
+            competency = {
+                "competency": comp_name,
+                "competency_description": row["competency_description"],
+                "weight": weight_val,
+                "indicators": [indicator],
+            }
+            seen_competencies[comp_name] = len(competency_matrix)
+            competency_matrix.append(competency)
+
     return competency_matrix
+
+
+def _read_competency_df(competency_file) -> pd.DataFrame:
+    """Read the competency Excel file into a DataFrame (reusable helper)."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        competency_path = Path(temp_dir) / competency_file.name
+        competency_file.seek(0)
+        with open(competency_path, 'wb') as f:
+            f.write(competency_file.getbuffer())
+        return pd.read_excel(competency_path)
 
 
 async def df_from_files(participants_results_file, tasks_file):
@@ -263,10 +315,14 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
     # Merge dataframes from uploaded files
     df_merged = await df_from_files(participants_results_file, tasks_file)
     
-    # Process competency file if provided
+    # Process and validate competency file
     competency_matrix = None
     if competency_file is not None:
         competency_matrix = process_competency_file(competency_file)
+
+        # Cross-validate competency names between matrix and answers
+        df_competency_raw = _read_competency_df(competency_file)
+        validate_competency_data(df_competency_raw, df_merged)
     
     # Split by email at the top level
     emails = df_merged["Email"].unique()
