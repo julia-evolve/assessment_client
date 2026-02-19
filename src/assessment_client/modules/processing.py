@@ -200,6 +200,47 @@ async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
         statements.append(statement_request)
     return statements
 
+def _aggregate_by_question(df: pd.DataFrame) -> List[tuple]:
+    """
+    Aggregate rows sharing the same question, merging competencies and indicators.
+
+    When the merged DataFrame contains duplicate rows for the same question
+    (e.g. the same task mapped to several competencies), this helper collapses
+    them into one entry with all unique competencies and indicators preserved.
+
+    Returns:
+        List of (question_text, answer_text, competencies_list, indicators_list)
+    """
+    results: List[tuple] = []
+    seen_questions: dict = {}  # question -> index in results
+
+    for _, row in df.iterrows():
+        question = safe_value(row["Вопрос"], "")
+        answer = safe_value(row["Ответ участника"], "")
+
+        comp_val = safe_value(row["Компетенции"], "")
+        new_comps = [c.strip() for c in str(comp_val).split(',') if c.strip()] if comp_val else []
+
+        ind_val = safe_value(row["Индикаторы"], "")
+        new_inds = [i.strip() for i in str(ind_val).split(';\n') if i.strip()] if ind_val else []
+
+        if question in seen_questions:
+            idx = seen_questions[question]
+            existing_comps = results[idx][2]
+            existing_inds = results[idx][3]
+            for c in new_comps:
+                if c not in existing_comps:
+                    existing_comps.append(c)
+            for i in new_inds:
+                if i not in existing_inds:
+                    existing_inds.append(i)
+        else:
+            seen_questions[question] = len(results)
+            results.append((question, answer, new_comps, new_inds))
+
+    return results
+
+
 async def process_mini_case_inputs(df_mini_cases_one_email) -> List[Dict]:
     """
     Process mini cases for a single email.
@@ -208,21 +249,10 @@ async def process_mini_case_inputs(df_mini_cases_one_email) -> List[Dict]:
     Returns:
         List of dicts matching MiniCase contract
     """
-    mini_cases = []
-    for _, col in df_mini_cases_one_email.iterrows():
-        competencies_value = safe_value(col["Компетенции"], "")
-        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
-        indicators_value = safe_value(col["Индикаторы"], "")
-        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
-
-        mini_case = dict(
-            mini_case=safe_value(col["Вопрос"], ""),
-            competencies=competencies_list,
-            indicators=indicators_list,
-            answer=safe_value(col["Ответ участника"], ""),
-        )
-        mini_cases.append(mini_case)
-    return mini_cases
+    return [
+        dict(mini_case=q, competencies=comps, indicators=inds, answer=ans)
+        for q, ans, comps, inds in _aggregate_by_question(df_mini_cases_one_email)
+    ]
 
 async def process_big_case_inputs(df_big_cases_one_email) -> List[Dict]:
     """
@@ -232,21 +262,10 @@ async def process_big_case_inputs(df_big_cases_one_email) -> List[Dict]:
     Returns:
         List of dicts matching BigCase contract
     """
-    big_cases = []
-    for _, col in df_big_cases_one_email.iterrows():
-        competencies_value = safe_value(col["Компетенции"], "")
-        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
-        indicators_value = safe_value(col["Индикаторы"], "")
-        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
-
-        big_case = dict(
-            big_case=safe_value(col["Вопрос"], ""),
-            competencies=competencies_list,
-            indicators=indicators_list,
-            answer=safe_value(col["Ответ участника"], ""),
-        )
-        big_cases.append(big_case)
-    return big_cases
+    return [
+        dict(big_case=q, competencies=comps, indicators=inds, answer=ans)
+        for q, ans, comps, inds in _aggregate_by_question(df_big_cases_one_email)
+    ]
 
 async def process_dilemma_inputs(df_dilemma_one_email) -> List[Dict]:
     """
@@ -258,21 +277,10 @@ async def process_dilemma_inputs(df_dilemma_one_email) -> List[Dict]:
     Returns:
         List of dicts matching DilemmasData contract
     """
-    dilemmas = []
-    for _, col in df_dilemma_one_email.iterrows():
-        competencies_value = safe_value(col["Компетенции"], "")
-        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
-        indicators_value = safe_value(col["Индикаторы"], "")
-        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
-
-        dilemma_request = dict(
-            dilemma=safe_value(col["Вопрос"], ""),
-            competencies=competencies_list,
-            indicators=indicators_list,
-            answer=safe_value(col["Ответ участника"], ""),
-        )
-        dilemmas.append(dilemma_request)
-    return dilemmas
+    return [
+        dict(dilemma=q, competencies=comps, indicators=inds, answer=ans)
+        for q, ans, comps, inds in _aggregate_by_question(df_dilemma_one_email)
+    ]
 
 async def process_open_question_inputs(df_open_one_email) -> List[Dict]:
     """
@@ -282,22 +290,10 @@ async def process_open_question_inputs(df_open_one_email) -> List[Dict]:
     Returns:
         List of dicts matching OpenQuestionsData contract
     """
-    questions_and_answers = []
-    for _, col in df_open_one_email.iterrows():
-        competencies_value = safe_value(col["Компетенции"], "")
-        competencies_list = [c.strip() for c in str(competencies_value).split(',') if c.strip()] if competencies_value else []
-        indicators_value = safe_value(col["Индикаторы"], "")
-        indicators_list = [i.strip() for i in str(indicators_value).split(';\n') if i.strip()] if indicators_value else []
-
-        qa_entry = dict(
-            question=safe_value(col["Вопрос"], ""),
-            answer=safe_value(col["Ответ участника"], ""),
-            competencies=competencies_list,
-            indicators=indicators_list,
-        )
-        questions_and_answers.append(qa_entry)
-    
-    return questions_and_answers
+    return [
+        dict(question=q, answer=ans, competencies=comps, indicators=inds)
+        for q, ans, comps, inds in _aggregate_by_question(df_open_one_email)
+    ]
 
 async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info="", assessment_type="external") -> Dict[str, Dict]:
     """
