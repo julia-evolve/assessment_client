@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 
 from assessment_client.modules import data_models as dm
+from assessment_client.modules.api_client import send_to_assessment_api
 import asyncio
 
 
@@ -241,30 +242,31 @@ async def render():
             "indicators": structured_indicators,
         })
 
-    request_data = dm.CreateAssessmentRequest(
-        assessment_time=assessment_time,
-        description=description,
-        competency_matrix=structured_competencies,
-        num_statements=num_statements,
-        num_dilemmas=num_dilemmas,
-        num_mini_cases=num_mini_cases,
-        num_big_cases=num_big_cases,
-        num_open_questions=num_open_questions,
-        webhook_url=webhook_url,
-    )
+    # Build request payload (used for preview and sending)
+    request_payload = {
+        "assessment_time": assessment_time,
+        "description": description,
+        "competency_matrix": structured_competencies,
+        "num_statements": num_statements,
+        "num_dilemmas": num_dilemmas,
+        "num_mini_cases": num_mini_cases,
+        "num_big_cases": num_big_cases,
+        "num_open_questions": num_open_questions,
+        "webhook_url": webhook_url,
+    }
 
-    st.subheader("JSON запроса для API")
-    st.json(request_data.model_dump())
+    with st.expander("JSON запроса для API", expanded=False):
+        st.json(request_payload)
 
     # send request to API endpoint
     if st.button("Отправить запрос на создание ассессмента"):
         try:
-            import requests
+            request_data = dm.CreateAssessmentRequest(**request_payload)
             with st.spinner("Отправляем запрос..."):
-                response = requests.post(api_url, json=request_data.model_dump(), timeout=120)
+                response = send_to_assessment_api(request_data.model_dump(by_alias=True), api_url)
                 response.raise_for_status()
                 st.success("Ассессмент успешно создан!")
-                st.json(response.json())
+
         except Exception as e:
             st.error(f"Ошибка при отправке запроса: {e}")
 
