@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS
+from assessment_client.modules.data_models import EvalAssessmentRequest
 from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text, validate_competency_data
 
 
@@ -187,18 +188,40 @@ async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
         df_statements_one_email: DataFrame filtered for one email and 'Быстрая самооценка' chapter
     
     Returns:
-        List of dicts matching StatementsData contract
+        List of dicts matching Statement model contract
     """
-    statements = []
-    for _, col in df_statements_one_email.iterrows():
-        statement_request = dict(
-            question=safe_value(col["Вопрос"], ""),
-            eval_type=safe_value(col["Тип оценки"], ""),
-            competency=safe_value(col["Компетенции"], ""),
-            answer=safe_value(col["Ответ участника"], ""),
-        )
-        statements.append(statement_request)
-    return statements
+    results: List[Dict] = []
+    seen_questions: dict = {}  # question -> index in results
+
+    for _, row in df_statements_one_email.iterrows():
+        question = safe_value(row["Вопрос"], "")
+        answer = safe_value(row["Ответ участника"], "")
+        eval_type = safe_value(row["Тип оценки"], "")
+
+        comp_val = safe_value(row["Компетенции"], "")
+        new_comps = [c.strip() for c in str(comp_val).split(',') if c.strip()] if comp_val else []
+
+        ind_val = safe_value(row.get("Индикаторы", ""), "")
+        new_inds = [i.strip() for i in str(ind_val).split(';\n') if i.strip()] if ind_val else []
+
+        if question in seen_questions:
+            idx = seen_questions[question]
+            for c in new_comps:
+                if c not in results[idx]["competencies"]:
+                    results[idx]["competencies"].append(c)
+            for i in new_inds:
+                if i not in results[idx]["indicators"]:
+                    results[idx]["indicators"].append(i)
+        else:
+            seen_questions[question] = len(results)
+            results.append(dict(
+                question=question,
+                eval_type=eval_type,
+                competencies=new_comps,
+                indicators=new_inds,
+                answer=answer,
+            ))
+    return results
 
 def _aggregate_by_question(df: pd.DataFrame) -> List[tuple]:
     """
@@ -379,7 +402,8 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             big_cases_data = await process_big_case_inputs(df_big_cases)
             combined_request["big_cases"] = big_cases_data
         
-        all_payloads[email] = combined_request
-        # break
+        # Validate through the Pydantic model and serialise
+        validated = EvalAssessmentRequest(**combined_request)
+        all_payloads[email] = validated.model_dump(mode="json", by_alias=True)
     
     return all_payloads
