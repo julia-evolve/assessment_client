@@ -53,3 +53,105 @@ class CreateAssessmentRequest(BaseModel):
     num_open_questions: Optional[int] = Field(
         default=2, description="Number of open questions to create"
     )
+
+
+
+class Statement(BaseModel):
+    question: str = Field(
+        ..., description="Statement or question text shown to the participant"
+    )
+    eval_type: str = Field(
+        ..., description="Question polarity or type (e.g. 'Прямая', 'Обратная')"
+    )
+    competencies: List[str] = Field(..., description="Competencies this statement belongs to")
+    indicators: List[str] = Field(default_factory=list, description="Indicators related to the competencies")
+    answer: str = Field(..., description="Raw participant answer text")
+
+
+class Dilemma(BaseModel):
+    dilemma: str = Field(
+        ..., description="Dilemma question text shown to the participant"
+    )
+    competencies: List[str] = Field(
+        ..., description="Competency this dilemma belongs to"
+    )
+    indicators: List[str] = Field(
+        ..., description="Indicators related to the competencies"
+    )
+    answer: str = Field(
+        ..., description="Participant's answer including their choice and explanation"
+    )
+
+
+class MiniCase(BaseModel):
+    mini_case: str = Field(..., description="Текст мини-кейса с описанием ситуации")
+    competencies: List[str] = Field(
+        ..., description="Список компетенций, которые оценивает мини-кейс"
+    )
+    indicators: List[str] = Field(
+        ..., description="Индикаторы, связанные с данными компетенциями"
+    )
+    answer: str = Field(default="", description="Ответ участника на мини-кейс")
+
+
+class BigCase(BaseModel):
+    big_case: str = Field(
+        ..., description="Текст большого кейса с описанием комплексной ситуации"
+    )
+    competencies: List[str] = Field(
+        ..., description="Список компетенций, которые оценивает большой кейс"
+    )
+    indicators: List[str] = Field(
+        ..., description="Индикаторы, связанные с данными компетенциями"
+    )
+    answer: str = Field(default="", description="Ответ участника на большой кейс")
+
+
+class OpenAssessmentQuestion(BaseModel):
+    """Open question for assessment evaluation"""
+
+    question: str = Field(..., description="Assessment question")
+    answer: str = Field(..., description="Assessment answer")
+    competencies: List[str] = Field(..., description="Associated competencies")
+    indicators: Optional[List[str]] = Field(
+        default=[], description="Indicators related to the competencies"
+    )
+
+class EvalAssessmentRequest(BaseModel):
+    """Combined request for all assessment types"""
+
+    # Participant info
+    user_email: str = Field(..., description="User email")
+    user_name: str = Field(..., description="User name")
+
+    # Assessment metadata
+    position_title: str = Field(default="", description="Position title")
+    assessment_info: str = Field(default="", description="Assessment info")
+
+    # Common assessment fields
+    competency_matrix: List[Competency] = Field(
+        ..., description="Competency matrix for evaluation"
+    )
+    assessment_type: str = Field(
+        default="external", description="One of: 'external', 'internal', 'development'"
+    )
+
+    # Optional assessment data - include only what needs to be evaluated
+    open_questions: Optional[List[OpenAssessmentQuestion]] = Field(
+        default=None, description="List of open assessment questions (optional)"
+    )
+    statements: Optional[List[Statement]] = Field(
+        default=None, description="List of statements to evaluate (optional)"
+    )
+    dilemmas: Optional[List[Dilemma]] = Field(
+        default=None, description="List of dilemmas to evaluate (optional)"
+    )
+    mini_cases: Optional[List[MiniCase]] = Field(
+        default=None, description="List of mini cases to evaluate (optional)"
+    )
+    big_cases: Optional[List[BigCase]] = Field(
+        default=None, description="List of big cases to evaluate (optional)"
+    )
+
+    # Webhook for final results
+    webhook_url: str = Field(..., description="Webhook URL to send combined results")
