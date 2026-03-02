@@ -99,6 +99,11 @@ def render():
             key='frequency'
         )
         company_name = st.text_input("Название компании", placeholder="ООО Пример", key='company_name')
+        assessment_length_minutes = st.select_slider(
+            "Длительность ассессмента (минуты)",
+            options=[30, 60, 90, 120],
+            value=60,            key='assessment_length_minutes'
+        )
 
     audience_description = st.text_area("Требования к участникам", height=100, key='audience_description')
     company_values_and_tone = st.text_area("Ценности и тон коммуникации", height=100, key='company_values_and_tone')
@@ -198,6 +203,7 @@ def render():
         "language": language,
         "target_audience": normalized_target_audience,
         "assessment_goal": assessment_goal,
+        "assessment_length_minutes": assessment_length_minutes,
         "frequency": frequency,
         "company_name": normalized_company_name,
         "competencies": competencies_payload,
