@@ -196,6 +196,7 @@ async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
             eval_type=safe_value(col["Тип оценки"], ""),
             competency=safe_value(col["Компетенции"], ""),
             answer=safe_value(col["Ответ участника"], ""),
+            indicators=[i.strip() for i in str(col["Индикаторы"]).split(';\n') if i.strip()] if pd.notna(col["Индикаторы"]) else []
         )
         statements.append(statement_request)
     return statements
