@@ -96,6 +96,15 @@ async def render():
 
     competencies = st.session_state["competencies"]
 
+    # Migrate old-format indicators (level_0..level_3) → new format (levels list)
+    for comp in competencies:
+        for ind in comp.get("indicators", []):
+            if "levels" not in ind:
+                ind["levels"] = [
+                    {"level": i, "description": ind.pop(f"level_{i}", "")}
+                    for i in range(4)
+                ]
+
     # --- Competency matrix UI ---
     st.header("Компетенции и индикаторы")
     st.caption("Добавьте компетенции и соответствующие им индикаторы, которые будут использоваться для оценки. Убедитесь, что вес компетенций в сумме составляет 100%.")
@@ -159,45 +168,27 @@ async def render():
                         key=f"ind_desc_{comp_idx}_{ind_idx}",
                     )
 
-                    lv0, lv1, lv2, lv3 = st.columns(4)
-                    with lv0:
-                        ind["level_0"] = st.text_area(
-                            "Уровень 0",
-                            value=ind["level_0"],
-                            key=f"lv0_{comp_idx}_{ind_idx}",
-                            height=80,
-                        )
-                    with lv1:
-                        ind["level_1"] = st.text_area(
-                            "Уровень 1",
-                            value=ind["level_1"],
-                            key=f"lv1_{comp_idx}_{ind_idx}",
-                            height=80,
-                        )
-                    with lv2:
-                        ind["level_2"] = st.text_area(
-                            "Уровень 2",
-                            value=ind["level_2"],
-                            key=f"lv2_{comp_idx}_{ind_idx}",
-                            height=80,
-                        )
-                    with lv3:
-                        ind["level_3"] = st.text_area(
-                            "Уровень 3",
-                            value=ind["level_3"],
-                            key=f"lv3_{comp_idx}_{ind_idx}",
-                            height=80,
-                        )
+                    lv_cols = st.columns(len(ind["levels"]))
+                    for lv_idx, lv in enumerate(ind["levels"]):
+                        with lv_cols[lv_idx]:
+                            lv["description"] = st.text_area(
+                                f"Уровень {lv['level']}",
+                                value=lv["description"],
+                                key=f"lv{lv_idx}_{comp_idx}_{ind_idx}",
+                                height=80,
+                            )
                     st.divider()
 
                 if st.button("➕ Добавить индикатор", key=f"add_ind_{comp_idx}"):
                     comp["indicators"].append({
                         "name": "",
                         "description": "",
-                        "level_0": "",
-                        "level_1": "",
-                        "level_2": "",
-                        "level_3": "",
+                        "levels": [
+                            {"level": 0, "description": ""},
+                            {"level": 1, "description": ""},
+                            {"level": 2, "description": ""},
+                            {"level": 3, "description": ""},
+                        ],
                     })
                     st.rerun()
 
@@ -210,10 +201,12 @@ async def render():
                 {
                     "name": "",
                     "description": "",
-                    "level_0": "",
-                    "level_1": "",
-                    "level_2": "",
-                    "level_3": "",
+                    "levels": [
+                        {"level": 0, "description": ""},
+                        {"level": 1, "description": ""},
+                        {"level": 2, "description": ""},
+                        {"level": 3, "description": ""},
+                    ],
                 }
             ],
         })
@@ -228,12 +221,7 @@ async def render():
             structured_indicators.append({
                 "name": ind["name"],
                 "description": ind["description"],
-                "levels": {
-                    "level_0": ind["level_0"],
-                    "level_1": ind["level_1"],
-                    "level_2": ind["level_2"],
-                    "level_3": ind["level_3"],
-                },
+                "levels": ind["levels"],
             })
         structured_competencies.append({
             "competency": comp["name"],
