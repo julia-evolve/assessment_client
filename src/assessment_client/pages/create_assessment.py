@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import streamlit as st
 
-from assessment_client.modules import data_models as dm
+from assessment_client.modules import config, data_models as dm
 from assessment_client.modules.api_client import send_to_assessment_api
 import asyncio
 
@@ -30,6 +30,19 @@ async def render():
             help="Enter the API endpoint URL"
         )
 
+    language = st.selectbox(
+            "Язык ассессмента",
+            config.LANGUAGE_OPTIONS,
+            index=config.LANGUAGE_OPTIONS.index("ru"),
+            key='language',
+        )
+    assessment_type = st.selectbox(
+            "Тип ассессмента",
+            config.EVAL_TYPE_KEYS,
+            index=0,
+            key='assessment_type',
+            format_func=lambda x: {"external": "Внешний", "internal": "Внутренний", "development": "Развитие"}.get(x, x),
+        )
     webhook_url = st.text_input(
         "Webhook URL для отправки созданного ассессмента",
         value="https://ntfy.sh/assessment",
@@ -244,7 +257,9 @@ async def render():
 
     # Build request payload (used for preview and sending)
     request_payload = {
+        "language": language,
         "assessment_time": assessment_time,
+        "assessment_type": assessment_type,
         "description": description,
         "competency_matrix": structured_competencies,
         "num_statements": num_statements,
