@@ -1,7 +1,7 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 
 class IndicatorLevel(BaseModel):
@@ -111,4 +111,41 @@ class MatrixRequest(BaseModel):
     )
     webhook_url: Optional[str] = Field(
         default="https://ntfy.sh/assessment", description="Webhook URL"
+    )
+
+class CreateAssessmentRequest(BaseModel):
+    language: Optional[str] = Field(
+        default="ru", description="Language of the assessment (e.g. ru, en)",
+    )
+    assessment_time: Optional[int] = Field(
+        default=60, description="Time allocated for the assessment in minutes"
+    )
+    assessment_type: Optional[
+        Literal["external", "internal", "development"]
+    ] = Field(
+        default="external",
+        description="Type of assessment",
+    )
+    description: str = Field(..., description="Description of the assessment")
+    competency_matrix: List[Competency] = Field(
+        ..., description="Competency matrix for the assessment"
+    )
+    num_statements: Optional[int] = Field(
+        default=10, description="Number of statements to create"
+    )
+    webhook_url: Optional[str] = Field(
+        default="https://ntfy.sh/assessment",
+        description="Webhook URL to send created assessment",
+    )
+    num_dilemmas: Optional[int] = Field(
+        default=2, description="Number of dilemmas to create"
+    )
+    num_mini_cases: Optional[int] = Field(
+        default=2, description="Number of mini cases to create"
+    )
+    num_big_cases: Optional[int] = Field(
+        default=1, description="Number of big cases to create"
+    )
+    num_open_questions: Optional[int] = Field(
+        default=2, description="Number of open questions to create"
     )

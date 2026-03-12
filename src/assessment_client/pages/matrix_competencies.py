@@ -92,7 +92,7 @@ def render():
     col1, col2 = st.columns(2)
     with col1:
         language = st.selectbox(
-            "Язык отчёта",
+            "Язык матрицы компетенций",
             config.LANGUAGE_OPTIONS,
             index=config.LANGUAGE_OPTIONS.index("ru"),
             key='language',
