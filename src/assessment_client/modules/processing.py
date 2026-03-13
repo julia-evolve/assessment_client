@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 
 from assessment_client.modules.config import REQUIRED_COMPETENCY_COLUMNS
+from assessment_client.modules.data_models import EvalAssessmentRequest
 from assessment_client.modules.validation import drop_rows_with_nan, normalize_spaces, clean_text, validate_competency_data
 
 
@@ -191,10 +192,12 @@ async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
     """
     statements = []
     for _, col in df_statements_one_email.iterrows():
+        comp_val = safe_value(col["Компетенции"], "")
+        competencies = [c.strip() for c in str(comp_val).split(',') if c.strip()] if comp_val else []
         statement_request = dict(
             question=safe_value(col["Вопрос"], ""),
             eval_type=safe_value(col["Тип оценки"], ""),
-            competency=safe_value(col["Компетенции"], ""),
+            competencies=competencies,
             answer=safe_value(col["Ответ участника"], ""),
             indicators=[i.strip() for i in str(col["Индикаторы"]).split(';\n') if i.strip()] if pd.notna(col["Индикаторы"]) else []
         )
@@ -344,6 +347,8 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
         df_big_cases = df_one_email[df_one_email['Название главы'] == 'Большие кейсы']
 
         # Build CombinedAssessmentRequest structure
+
+        # EvalAssessmentRequest
         combined_request = {
             "user_email": email,
             "user_name": user_name,
@@ -380,7 +385,7 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             big_cases_data = await process_big_case_inputs(df_big_cases)
             combined_request["big_cases"] = big_cases_data
         
-        all_payloads[email] = combined_request
-        # break
+        validated = EvalAssessmentRequest(**combined_request)
+        all_payloads[email] = validated.model_dump(by_alias=True)
     
     return all_payloads
