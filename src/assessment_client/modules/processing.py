@@ -86,14 +86,14 @@ def process_competency_file(competency_file):
         if not comp_name:
             continue
 
-        # Build indicator entry
+        # Build indicator entry with levels as list of {level, description}
         indicator = {
             "name": normalize_spaces(str(row.get("indicator_name", ""))),
             "description": normalize_spaces(str(row.get("indicator_description", ""))),
-            "levels": {
-                lvl: str(row[lvl]).strip() if pd.notna(row.get(lvl)) else ""
-                for lvl in level_columns
-            },
+            "levels": [
+                {"level": idx, "description": str(row[lvl]).strip() if pd.notna(row.get(lvl)) else ""}
+                for idx, lvl in enumerate(level_columns)
+            ],
         }
 
         if comp_name in seen_competencies:
@@ -188,21 +188,40 @@ async def process_statement_inputs(df_statements_one_email) -> List[Dict]:
         df_statements_one_email: DataFrame filtered for one email and 'Быстрая самооценка' chapter
     
     Returns:
-        List of dicts matching StatementsData contract
+        List of dicts matching Statement model contract
     """
-    statements = []
-    for _, col in df_statements_one_email.iterrows():
-        comp_val = safe_value(col["Компетенции"], "")
-        competencies = [c.strip() for c in str(comp_val).split(',') if c.strip()] if comp_val else []
-        statement_request = dict(
-            question=safe_value(col["Вопрос"], ""),
-            eval_type=safe_value(col["Тип оценки"], ""),
-            competencies=competencies,
-            answer=safe_value(col["Ответ участника"], ""),
-            indicators=[i.strip() for i in str(col["Индикаторы"]).split(';\n') if i.strip()] if pd.notna(col["Индикаторы"]) else []
-        )
-        statements.append(statement_request)
-    return statements
+    results: List[Dict] = []
+    seen_questions: dict = {}  # question -> index in results
+
+    for _, row in df_statements_one_email.iterrows():
+        question = safe_value(row["Вопрос"], "")
+        answer = safe_value(row["Ответ участника"], "")
+        eval_type = safe_value(row["Тип оценки"], "")
+
+        comp_val = safe_value(row["Компетенции"], "")
+        new_comps = [c.strip() for c in str(comp_val).split(',') if c.strip()] if comp_val else []
+
+        ind_val = safe_value(row.get("Индикаторы", ""), "")
+        new_inds = [i.strip() for i in str(ind_val).split(';\n') if i.strip()] if ind_val else []
+
+        if question in seen_questions:
+            idx = seen_questions[question]
+            for c in new_comps:
+                if c not in results[idx]["competencies"]:
+                    results[idx]["competencies"].append(c)
+            for i in new_inds:
+                if i not in results[idx]["indicators"]:
+                    results[idx]["indicators"].append(i)
+        else:
+            seen_questions[question] = len(results)
+            results.append(dict(
+                question=question,
+                eval_type=eval_type,
+                competencies=new_comps,
+                indicators=new_inds,
+                answer=answer,
+            ))
+    return results
 
 def _aggregate_by_question(df: pd.DataFrame) -> List[tuple]:
     """

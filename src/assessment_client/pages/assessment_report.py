@@ -82,61 +82,58 @@ async def render():
             type=['xlsx'],
             key="competency_file"
         )
-    # Upload button
+    # Auto-preview: process files and show JSON when all files are uploaded
+    if answers_file is not None and tasks_file is not None and competency_file is not None:
+        try:
+            results = await process_all_inputs(
+                participants_results_file=answers_file,
+                tasks_file=tasks_file,
+                competency_file=competency_file,
+                assessment_info=assessment_info,
+                assessment_type=assessment_type
+            )
+            if results:
+                st.session_state["preview_results"] = results
+                for email, payload in results.items():
+                    with st.expander(f"JSON запрос для {email}"):
+                        st.json(payload)
+            else:
+                st.session_state.pop("preview_results", None)
+        except Exception as e:
+            st.error(f"Ошибка обработки файлов: {str(e)}")
+            st.session_state.pop("preview_results", None)
+
+    # Send button
     if st.button("Отправить", type="primary"):
         if answers_file is None or tasks_file is None or competency_file is None:
             st.error("Пожалуйста, загрузите все три файла перед отправкой.")
+        elif "preview_results" not in st.session_state or not st.session_state["preview_results"]:
+            st.error("Не удалось сформировать данные. Проверьте загруженные файлы.")
         else:
-            with st.spinner("Обработка файлов..."):
-                try:
-                    # Process the Excel files
-                    results = await process_all_inputs(
-                        participants_results_file=answers_file,
-                        tasks_file=tasks_file,
-                        competency_file=competency_file,
-                        assessment_info=assessment_info,
-                        assessment_type=assessment_type
-                    )
-                    
-                    if not results:
-                        st.warning("No data found to process. Please check that your Excel files have an 'email' column.")
+            results = st.session_state["preview_results"]
+            st.success(f"Отправка {len(results)} email(ов)...")
+
+            progress_bar = st.progress(0)
+            status_container = st.container()
+
+            for idx, (email, payload) in enumerate(results.items()):
+                with status_container:
+                    st.write(f"Processing email: {email}")
+
+                    response = send_to_assessment_api(payload, api_url)
+
+                    if isinstance(response, str):
+                        st.error(f"Error for {email}: {response}")
                     else:
-                        st.success(f"Found {len(results)} email(s) to process")
-                        
-                        # Send each payload to the API
-                        progress_bar = st.progress(0)
-                        status_container = st.container()
-                        
-                        for idx, (email, payload) in enumerate(results.items()):
-                            with status_container:
-                                st.write(f"Processing email: {email}")
-                                
-                                # Show JSON payload in expander
-                                with st.expander(f"View JSON for {email}"):
-                                    st.json(payload)
-                                
-                                # Send to API
-                                response = send_to_assessment_api(payload, api_url)
-                                
-                                if isinstance(response, str):
-                                    # Error occurred
-                                    st.error(f"Error for {email}: {response}")
-                                else:
-                                    # Check response status
-                                    if response.status_code == 200:
-                                        st.success(f"✅ Successfully sent data for {email}")
-                                    else:
-                                        st.warning(f"⚠️ API returned status {response.status_code} for {email}: {response.text}")
-                            
-                            # Update progress
-                            progress_bar.progress((idx + 1) / len(results))
-                        
-                        st.balloons()
-                        st.success("All emails processed!")
-                
-                except Exception as e:
-                    st.error(f"Error processing files: {str(e)}")
-                    st.exception(e)
+                        if response.status_code == 200:
+                            st.success(f"✅ Successfully sent data for {email}")
+                        else:
+                            st.warning(f"⚠️ API returned status {response.status_code} for {email}: {response.text}")
+
+                progress_bar.progress((idx + 1) / len(results))
+
+            st.balloons()
+            st.success("All emails processed!")
     
     # Information section
     st.divider()

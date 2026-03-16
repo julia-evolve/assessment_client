@@ -2,6 +2,7 @@ import streamlit as st
 
 from assessment_client.modules.api_client import send_to_assessment_api
 from assessment_client.modules.validation import normalize_spaces
+from assessment_client.modules import data_models as dm
 import assessment_client.modules.config as config
 
 from assessment_client.modules.data_models import AssessmentGoal, AssessmentFrequency, MatrixRequest
@@ -166,17 +167,10 @@ def render():
     normalized_target_audience = None
     normalized_company_name = None
 
-    if not submitted:
-        return
-
-    errors = []
+    # Always build payload for preview (even before submit)
     competencies_payload = []
     for idx, (name, weight, description) in enumerate(competency_inputs, start=1):
         normalized_name = normalize_spaces(name)
-        if not normalized_name:
-            errors.append(f"Компетенция #{idx} должна содержать название.")
-        if weight <= 0:
-            errors.append(f"Компетенция #{idx} должна иметь положительный вес.")
         competencies_payload.append({
             "name": normalized_name,
             "weight": weight,
@@ -191,12 +185,39 @@ def render():
         if normalize_spaces(case)
     ]
 
-    if typical_cases_inputs and not typical_cases_payload:
-        errors.append("Добавьте текст хотя бы к одному кейсу или установите количество 0.")
-
-    # Normalize a few free-text fields used in payload and validate required ones
     normalized_target_audience = normalize_spaces(target_audience)
     normalized_company_name = normalize_spaces(company_name)
+
+    payload = {
+        "language": language,
+        "target_audience": normalized_target_audience,
+        "assessment_goal": assessment_goal,
+        "assessment_length_minutes": assessment_length_minutes,
+        "frequency": frequency,
+        "company_name": normalized_company_name,
+        "competencies": competencies_payload,
+        "typical_cases": typical_cases_payload or None,
+        "audience_description": normalize_spaces(audience_description) or None,
+        "company_values_and_tone": normalize_spaces(company_values_and_tone) or None,
+        "customer_pain_points": normalize_spaces(customer_pain_points) or None,
+    }
+
+    with st.expander("JSON запроса для API", expanded=False):
+        st.json(payload)
+
+    if not submitted:
+        return
+
+    # Validate required fields on submit
+    errors = []
+    for idx, (name, weight, _description) in enumerate(competency_inputs, start=1):
+        if not normalize_spaces(name):
+            errors.append(f"Компетенция #{idx} должна содержать название.")
+        if weight <= 0:
+            errors.append(f"Компетенция #{idx} должна иметь положительный вес.")
+
+    if typical_cases_inputs and not typical_cases_payload:
+        errors.append("Добавьте текст хотя бы к одному кейсу или установите количество 0.")
 
     if not normalized_target_audience:
         errors.append("Заполните поле 'Целевая аудитория'.")
@@ -210,7 +231,7 @@ def render():
             st.error(err)
         return
 
-    payload = MatrixRequest(
+    payload = dm.MatrixRequest(
         language=language,
         target_audience=normalized_target_audience,
         assessment_goal=assessment_goal,

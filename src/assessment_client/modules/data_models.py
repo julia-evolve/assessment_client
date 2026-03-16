@@ -5,15 +5,19 @@ from typing import List, Optional, Literal
 
 
 class IndicatorLevel(BaseModel):
-    level_0: str = Field(..., description="Level 0 description")
-    level_1: str = Field(..., description="Level 1 description")
-    level_2: str = Field(..., description="Level 2 description")
-    level_3: str = Field(..., description="Level 3 description")
+    level: int = Field(..., description="Indicator level number (e.g., 0-3)")
+    description: str = Field(..., description="Description of the indicator level")
+
+
+class IndicatorLevels(BaseModel):
+    levels: List[IndicatorLevel] = Field(..., description="List of indicator levels")
+
 
 class Indicator(BaseModel):
     name: str = Field(..., description="Indicator name")
     description: str = Field(..., description="Indicator description")
-    levels: IndicatorLevel = Field(..., description="Indicator levels")
+    levels: List[IndicatorLevel] = Field(default_factory=list, description="Indicator levels")
+
 
 class Competency(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -27,34 +31,10 @@ class Competency(BaseModel):
     indicators: List[Indicator] = Field(
         default_factory=list, description="List of indicators for the competency"
     )
+    num_indicators: Optional[int] = Field(
+        default=1, description="Number of indicators for the competency"
+    )
 
-class CreateAssessmentRequest(BaseModel):
-    assessment_time: Optional[int] = Field(
-        default=60, description="Time allocated for the assessment in minutes"
-    )
-    description: str = Field(..., description="Description of the assessment")
-    competency_matrix: List[Competency] = Field(
-        ..., description="Competency matrix for the assessment"
-    )
-    num_statements: Optional[int] = Field(
-        default=10, description="Number of statements to create"
-    )
-    webhook_url: Optional[str] = Field(
-        default="https://ntfy.sh/assessment",
-        description="Webhook URL to send created assessment",
-    )
-    num_dilemmas: Optional[int] = Field(
-        default=2, description="Number of dilemmas to create"
-    )
-    num_mini_cases: Optional[int] = Field(
-        default=2, description="Number of mini cases to create"
-    )
-    num_big_cases: Optional[int] = Field(
-        default=1, description="Number of big cases to create"
-    )
-    num_open_questions: Optional[int] = Field(
-        default=2, description="Number of open questions to create"
-    )
 
 class AssessmentGoal(str, Enum):
     LEVEL_ASSESSMENT_FOR_IDP_UPDATE = "level_assessment_for_idp_update"
@@ -250,6 +230,4 @@ class EvalAssessmentRequest(BaseModel):
     )
 
     # Webhook for final results
-    webhook_url: str = Field(
-        ..., description="Webhook URL to send combined results"
-    )
+    webhook_url: str = Field(..., description="Webhook URL to send combined results")
