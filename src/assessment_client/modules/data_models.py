@@ -1,7 +1,7 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Literal, Optional
+from typing import List, Optional, Literal
 
 
 class IndicatorLevel(BaseModel):
