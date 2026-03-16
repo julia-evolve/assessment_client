@@ -231,23 +231,15 @@ def render():
             st.error(err)
         return
 
-    payload = dm.MatrixRequest(
-        language=language,
-        target_audience=normalized_target_audience,
-        assessment_goal=assessment_goal,
-        frequency=frequency,
-        company_name=normalized_company_name,
-        competencies=competencies_payload,
-        typical_cases=typical_cases_payload or None,
-        audience_description=normalize_spaces(audience_description) or None,
-        company_values_and_tone=normalize_spaces(company_values_and_tone) or None,
-        customer_pain_points=normalize_spaces(customer_pain_points) or None,
-    ).model_dump()
+    try:
+        request_data = dm.MatrixRequest(**payload)
+    except Exception as e:
+        st.error(f"Ошибка валидации запроса: {e}")
+        return
 
-    st.subheader("Предпросмотр payload")
-    st.json(payload)
+    serialized_payload = request_data.model_dump(mode="json", by_alias=True)
 
-    response = send_to_assessment_api(payload, api_url)
+    response = send_to_assessment_api(serialized_payload, api_url)
     if isinstance(response, str):
         st.error(f"Ошибка при отправке запроса: {response}")
         return
