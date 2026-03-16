@@ -366,6 +366,8 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
         df_big_cases = df_one_email[df_one_email['Название главы'] == 'Большие кейсы']
 
         # Build CombinedAssessmentRequest structure
+
+        # EvalAssessmentRequest
         combined_request = {
             "user_email": email,
             "user_name": user_name,
@@ -402,8 +404,7 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             big_cases_data = await process_big_case_inputs(df_big_cases)
             combined_request["big_cases"] = big_cases_data
         
-        # Validate through the Pydantic model and serialise
         validated = EvalAssessmentRequest(**combined_request)
-        all_payloads[email] = validated.model_dump(mode="json", by_alias=True)
+        all_payloads[email] = validated.model_dump(by_alias=True)
     
     return all_payloads

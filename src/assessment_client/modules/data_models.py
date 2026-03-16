@@ -1,5 +1,7 @@
+from enum import Enum
+
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 
 class IndicatorLevel(BaseModel):
@@ -54,6 +56,99 @@ class CreateAssessmentRequest(BaseModel):
         default=2, description="Number of open questions to create"
     )
 
+class AssessmentGoal(str, Enum):
+    LEVEL_ASSESSMENT_FOR_IDP_UPDATE = "level_assessment_for_idp_update"
+    EMPLOYEE_POTENTIAL_FOR_ROLE_SALARY_REVIEW = "employee_potential_for_role_salary_review"
+    CANDIDATE_SELECTION_FOR_POSITION = "candidate_selection_for_position"
+
+
+class AssessmentFrequency(str, Enum):
+    ONCE_A_YEAR = "once_a_year"
+    EVERY_SIX_MONTHS = "every_six_months"
+    ONCE_A_QUARTER = "once_a_quarter"
+    ONE_TIME = "one_time"
+
+
+class MatrixRequest(BaseModel):
+    language: str = Field(
+        ..., description="Language of the report (e.g. ru, en)"
+    )
+    target_audience: str = Field(
+        ..., description="Target audience: who are we evaluating"
+    )
+    assessment_goal: AssessmentGoal = Field(
+        ..., description="Goal of the assessment center"
+    )
+    frequency: AssessmentFrequency = Field(
+        ..., description="Frequency of the assessment center"
+    )
+    company_name: str = Field(
+        ..., description="Company name (may come from LMS)"
+    )
+    competencies: List[Competency] = Field(
+        ..., description="List of competencies with weights"
+    )
+    assessment_length_minutes: Optional[int] = Field(
+        default=60,
+        description="Planned length of the assessment in minutes (30, 60, 90, 120)",
+    )
+    typical_cases: Optional[List[str]] = Field(
+        default=None,
+        min_items=1,
+        max_items=5,
+        description="Typical cases (1–5), reflecting real work situations",
+    )
+    audience_description: Optional[str] = Field(
+        default=None, description="Requirements for the candidate / employee"
+    )
+    company_values_and_tone: Optional[str] = Field(
+        default=None,
+        description="Company values, corporate style and communication tone",
+    )
+    customer_pain_points: Optional[str] = Field(
+        default=None,
+        description="What difficulties does the customer face and why they need an assessment",
+    )
+    webhook_url: Optional[str] = Field(
+        default="https://ntfy.sh/assessment", description="Webhook URL"
+    )
+
+class CreateAssessmentRequest(BaseModel):
+    language: Optional[str] = Field(
+        default="ru", description="Language of the assessment (e.g. ru, en)",
+    )
+    assessment_time: Optional[int] = Field(
+        default=60, description="Time allocated for the assessment in minutes"
+    )
+    assessment_type: Optional[
+        Literal["external", "internal", "development"]
+    ] = Field(
+        default="external",
+        description="Type of assessment",
+    )
+    description: str = Field(..., description="Description of the assessment")
+    competency_matrix: List[Competency] = Field(
+        ..., description="Competency matrix for the assessment"
+    )
+    num_statements: Optional[int] = Field(
+        default=10, description="Number of statements to create"
+    )
+    webhook_url: Optional[str] = Field(
+        default="https://ntfy.sh/assessment",
+        description="Webhook URL to send created assessment",
+    )
+    num_dilemmas: Optional[int] = Field(
+        default=2, description="Number of dilemmas to create"
+    )
+    num_mini_cases: Optional[int] = Field(
+        default=2, description="Number of mini cases to create"
+    )
+    num_big_cases: Optional[int] = Field(
+        default=1, description="Number of big cases to create"
+    )
+    num_open_questions: Optional[int] = Field(
+        default=2, description="Number of open questions to create"
+    )
 
 
 class Statement(BaseModel):
@@ -109,7 +204,6 @@ class BigCase(BaseModel):
 
 class OpenAssessmentQuestion(BaseModel):
     """Open question for assessment evaluation"""
-
     question: str = Field(..., description="Assessment question")
     answer: str = Field(..., description="Assessment answer")
     competencies: List[str] = Field(..., description="Associated competencies")
@@ -133,12 +227,14 @@ class EvalAssessmentRequest(BaseModel):
         ..., description="Competency matrix for evaluation"
     )
     assessment_type: str = Field(
-        default="external", description="One of: 'external', 'internal', 'development'"
+        default="external",
+        description="One of: 'external', 'internal', 'development'",
     )
 
     # Optional assessment data - include only what needs to be evaluated
     open_questions: Optional[List[OpenAssessmentQuestion]] = Field(
-        default=None, description="List of open assessment questions (optional)"
+        default=None,
+        description="List of open assessment questions (optional)",
     )
     statements: Optional[List[Statement]] = Field(
         default=None, description="List of statements to evaluate (optional)"
@@ -154,4 +250,6 @@ class EvalAssessmentRequest(BaseModel):
     )
 
     # Webhook for final results
-    webhook_url: str = Field(..., description="Webhook URL to send combined results")
+    webhook_url: str = Field(
+        ..., description="Webhook URL to send combined results"
+    )
