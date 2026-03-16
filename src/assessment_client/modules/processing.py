@@ -86,14 +86,14 @@ def process_competency_file(competency_file):
         if not comp_name:
             continue
 
-        # Build indicator entry
+        # Build indicator entry with levels as list of {level, description}
         indicator = {
             "name": normalize_spaces(str(row.get("indicator_name", ""))),
             "description": normalize_spaces(str(row.get("indicator_description", ""))),
-            "levels": {
-                lvl: str(row[lvl]).strip() if pd.notna(row.get(lvl)) else ""
-                for lvl in level_columns
-            },
+            "levels": [
+                {"level": idx, "description": str(row[lvl]).strip() if pd.notna(row.get(lvl)) else ""}
+                for idx, lvl in enumerate(level_columns)
+            ],
         }
 
         if comp_name in seen_competencies:
