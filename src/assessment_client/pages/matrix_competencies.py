@@ -201,7 +201,7 @@ def render():
         "company_values_and_tone": normalize_spaces(company_values_and_tone) or None,
         "customer_pain_points": normalize_spaces(customer_pain_points) or None,
     }
-    
+
     with st.expander("JSON запроса для API", expanded=False):
         st.json(payload)
 
