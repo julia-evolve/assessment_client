@@ -5,6 +5,12 @@ from assessment_client.modules.validation import normalize_spaces
 from assessment_client.modules import data_models as dm
 import assessment_client.modules.config as config
 
+from assessment_client.modules.data_models import AssessmentGoal, AssessmentFrequency, MatrixRequest
+
+
+ASSESSMENT_FREQUENCIES = [freq.value for freq in AssessmentFrequency]
+ASSESSMENT_GOALS = [goal.value for goal in AssessmentGoal]
+
 
 def render():
     st.title("Запрос на подготовку матрицы компетенций")
@@ -48,8 +54,8 @@ def render():
             st.session_state['typical_case_count'] = 1
             st.session_state['language'] = 'ru'
             st.session_state['target_audience'] = 'Менеджеры по продажам'
-            st.session_state['assessment_goal'] = config.AssessmentGoal.CANDIDATE_SELECTION_FOR_POSITION.value
-            st.session_state['frequency'] = config.AssessmentFrequency.ONE_TIME.value
+            st.session_state['assessment_goal'] = AssessmentGoal.CANDIDATE_SELECTION_FOR_POSITION.value
+            st.session_state['frequency'] = AssessmentFrequency.ONE_TIME.value
             st.session_state['company_name'] = 'ООО Пример'
             st.session_state['audience_description'] = 'Требования: опыт работы 1-3 года в продажах'
             st.session_state['company_values_and_tone'] = 'Ориентированность на клиента, дружелюбный тон'
@@ -86,17 +92,22 @@ def render():
     # Main fields
     col1, col2 = st.columns(2)
     with col1:
-        language = st.selectbox("Язык отчёта", config.LANGUAGE_OPTIONS, index=0, key='language')
+        language = st.selectbox(
+            "Язык матрицы компетенций",
+            config.LANGUAGE_OPTIONS,
+            index=config.LANGUAGE_OPTIONS.index("ru"),
+            key='language',
+        )
         target_audience = st.text_input("Целевая аудитория", placeholder="Менеджеры по продажам", key='target_audience')
         assessment_goal = st.selectbox(
             "Цель ассессмента",
-            options=config.ASSESSMENT_GOALS,
+            options=ASSESSMENT_GOALS,
             key='assessment_goal'
         )
     with col2:
         frequency = st.selectbox(
             "Частота ассессмента",
-            options=config.ASSESSMENT_FREQUENCIES,
+            options=ASSESSMENT_FREQUENCIES,
             key='frequency'
         )
         company_name = st.text_input("Название компании", placeholder="ООО Пример", key='company_name')
@@ -190,7 +201,7 @@ def render():
         "company_values_and_tone": normalize_spaces(company_values_and_tone) or None,
         "customer_pain_points": normalize_spaces(customer_pain_points) or None,
     }
-
+    
     with st.expander("JSON запроса для API", expanded=False):
         st.json(payload)
 
