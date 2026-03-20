@@ -17,16 +17,20 @@ PAGES = {
 }
 
 # Пути к примерам файлов
-ANSWERS_EXAMPLE_PATH = "src/assessment_client/examples/answers.xlsx"
-LOGIC_EXAMPLE_PATH = "src/assessment_client/examples/logic.xlsx"
-MATRIX_EXAMPLE_PATH = "src/assessment_client/examples/matrix.xlsx"
+IPR_ANSWERS_EXAMPLE_PATH = "src/assessment_client/examples/ipr/answers.xlsx"
+IPR_LOGIC_EXAMPLE_PATH = "src/assessment_client/examples/ipr/logic.xlsx"
+IPR_MATRIX_EXAMPLE_PATH = "src/assessment_client/examples/ipr/matrix.xlsx"
+
+EXTERNAL_ANSWERS_EXAMPLE_PATH = "src/assessment_client/examples/external/answers.xlsx"
+EXTERNAL_LOGIC_EXAMPLE_PATH = "src/assessment_client/examples/external/logic.xlsx"
+EXTERNAL_MATRIX_EXAMPLE_PATH = "src/assessment_client/examples/external/matrix.xlsx"
 
 
 def load_example_metadata():
     """Загружает метаданные из примеров Excel-файлов."""
-    answers_df = pd.read_excel(ANSWERS_EXAMPLE_PATH, sheet_name="Результаты участников")
-    logic_df = pd.read_excel(LOGIC_EXAMPLE_PATH)
-    matrix_df = pd.read_excel(MATRIX_EXAMPLE_PATH)
+    answers_df = pd.read_excel(IPR_ANSWERS_EXAMPLE_PATH, sheet_name="Результаты участников")
+    logic_df = pd.read_excel(IPR_LOGIC_EXAMPLE_PATH)
+    matrix_df = pd.read_excel(IPR_MATRIX_EXAMPLE_PATH)
 
     return {
         "question_types": answers_df["Название главы"].unique().tolist(),
