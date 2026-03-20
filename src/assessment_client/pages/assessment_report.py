@@ -38,6 +38,22 @@ async def render():
         help="Выберите тип оценивания, соответствующий доступным evaluators"
     )
 
+    if assessment_type == "external":
+        st.info(
+            "Допустимые ответы: Полностью согласен, Скорее согласен, "
+            "Затрудняюсь ответить, Скорее не согласен, Полностью не согласен"
+        )
+    elif assessment_type == "development":
+        st.info(
+            "Допустимые ответы: Всегда, Часто, Иногда, Редко, Никогда, "
+            "Никогда или очень редко, Всегда или почти всегда, "
+            "Никогда или очень редко (менее 10% подходящих ситуаций), "
+            "Редко (примерно в 30% ситуаций), "
+            "Иногда (примерно в половине ситуаций), "
+            "Часто (в большинстве ситуаций), "
+            "Всегда или почти всегда (более 90% ситуаций)"
+        )
+
     assessment_info = st.text_area(
         "Общие данные про ассессмент",
         placeholder="Добавьте вводные, контекст, ссылки...",
@@ -48,11 +64,14 @@ async def render():
     st.header("Загрузка файлов")
     st.caption("Инструкция по заполнению файлов находится на главной странице. Пожалуйста, внимательно ознакомьтесь с требованиями к структуре данных в файлах, чтобы обеспечить корректную работу системы.")
     
+    examples_subdir = "external" if assessment_type == "external" else "ipr"
+    examples_base = f"src/assessment_client/examples/{examples_subdir}"
+
     col1, col2 = st.columns(2)
     with col1:
         st.write("Таблица c вопросами и ответами")
         download_example_button(
-            "src/assessment_client/examples/answers.xlsx",
+            f"{examples_base}/answers.xlsx",
             file_name="answers.xlsx"
         )
         answers_file = st.file_uploader(
@@ -63,7 +82,7 @@ async def render():
     with col2:
         st.write("Таблица с расшифровкой компетенций")
         download_example_button(
-            "src/assessment_client/examples/logic.xlsx",
+            f"{examples_base}/logic.xlsx",
             file_name="logic.xlsx"
         )
         tasks_file = st.file_uploader(
@@ -74,7 +93,7 @@ async def render():
     st.subheader("Матрица компетенций")
     
     download_example_button(
-            "src/assessment_client/examples/matrix.xlsx",
+            f"{examples_base}/matrix.xlsx",
             file_name="competency_matrix.xlsx"
         )
     competency_file = st.file_uploader(
@@ -138,7 +157,7 @@ async def render():
     # Information section
     st.divider()
 
-    _examples_dir = Path(__file__).resolve().parent.parent / "examples"
+    _examples_dir = Path(__file__).resolve().parent.parent / "examples" / examples_subdir
 
     @st.cache_data
     def load_columns_info(path: str) -> str:
