@@ -101,7 +101,7 @@ class CreateAssessmentRequest(BaseModel):
         default=60, description="Time allocated for the assessment in minutes"
     )
     assessment_type: Optional[
-        Literal["external", "internal", "development"]
+        Literal["external", "development"]
     ] = Field(
         default="external",
         description="Type of assessment",
@@ -208,7 +208,7 @@ class EvalAssessmentRequest(BaseModel):
     )
     assessment_type: str = Field(
         default="external",
-        description="One of: 'external', 'internal', 'development'",
+        description="One of: 'external', 'development'",
     )
 
     # Optional assessment data - include only what needs to be evaluated

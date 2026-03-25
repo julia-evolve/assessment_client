@@ -4,7 +4,7 @@ REQUIRED_COMPETENCY_COLUMNS = [
     "level_0", "level_1", "level_2", "level_3",
 ]
 REQUIRED_QA_COLUMNS = ["Email", "Name", "Позиция", "Вопрос", "Ответ участника", "Компетенции"]
-EVAL_TYPE_KEYS = ["external", "internal", "development"]
+EVAL_TYPE_KEYS = ["external", "development"]
 
 LANGUAGE_OPTIONS = [
     "ar", "az", "da", "de", "en", "es", "fi", "fr",

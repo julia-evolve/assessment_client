@@ -41,7 +41,7 @@ async def render():
             config.EVAL_TYPE_KEYS,
             index=0,
             key='assessment_type',
-            format_func=lambda x: {"external": "Внешний", "internal": "Внутренний", "development": "Развитие"}.get(x, x),
+            format_func=lambda x: {"external": "Внешний", "development": "Развитие"}.get(x, x),
         )
     webhook_url = st.text_input(
         "Webhook URL для отправки созданного ассессмента",
