@@ -13,3 +13,17 @@ LANGUAGE_OPTIONS = [
 
 
 DEFAULT_MATRIX_REQUEST_URL = "https://evolveaiserver-production.up.railway.app/competencies_matrix"
+
+IPR_REPORT_PARTS = [
+    "strong_competencies",
+    "growth_zones",
+    "risk_zones",
+    "strong_indicators",
+    "growth_indicators",
+    "risk_indicators",
+    "contradictions",
+    "recommendations",
+    "ai_usage",
+    "strong_summary",
+    "main_recommendation",
+]

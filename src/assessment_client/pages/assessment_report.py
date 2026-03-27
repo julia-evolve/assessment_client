@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from assessment_client.modules.api_client import send_to_assessment_api
-from assessment_client.modules.config import EVAL_TYPE_KEYS
+from assessment_client.modules.config import EVAL_TYPE_KEYS, IPR_REPORT_PARTS
 from assessment_client.modules.processing import process_all_inputs
 from assessment_client.modules.utils import download_example_button
 import asyncio
@@ -53,6 +53,18 @@ async def render():
             "Часто (в большинстве ситуаций), "
             "Всегда или почти всегда (более 90% ситуаций)"
         )
+
+    # Report parts checkboxes for development type
+    report_parts: list[str] = []
+    if assessment_type == "development":
+        st.subheader("Блоки отчёта")
+        rows = [IPR_REPORT_PARTS[i:i + 4] for i in range(0, len(IPR_REPORT_PARTS), 4)]
+        for row_items in rows:
+            cols = st.columns(4)
+            for col, part in zip(cols, row_items):
+                with col:
+                    if st.checkbox(part, value=True, key=f"report_part_{part}"):
+                        report_parts.append(part)
 
     assessment_info = st.text_area(
         "Общие данные про ассессмент",
@@ -109,7 +121,8 @@ async def render():
                 tasks_file=tasks_file,
                 competency_file=competency_file,
                 assessment_info=assessment_info,
-                assessment_type=assessment_type
+                assessment_type=assessment_type,
+                report_parts=report_parts,
             )
             if results:
                 st.session_state["preview_results"] = results

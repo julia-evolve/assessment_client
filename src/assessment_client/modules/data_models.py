@@ -231,3 +231,11 @@ class EvalAssessmentRequest(BaseModel):
 
     # Webhook for final results
     webhook_url: str = Field(..., description="Webhook URL to send combined results")
+    report_parts: Optional[List[str]] = Field(
+        default_factory=list,
+        description=(
+            "Report blocks to include. "
+            "Empty → all blocks. "
+            "Non-empty → mandatory fields + listed blocks only."
+        ),
+    )
