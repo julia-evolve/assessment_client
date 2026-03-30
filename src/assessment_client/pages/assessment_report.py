@@ -56,6 +56,8 @@ async def render():
 
     # Report parts checkboxes for development type
     report_parts: list[str] = []
+    show_average_scores = True
+    show_qualification = True
     if assessment_type == "development":
         st.subheader("Блоки отчёта")
         rows = [IPR_REPORT_PARTS[i:i + 4] for i in range(0, len(IPR_REPORT_PARTS), 4)]
@@ -65,6 +67,23 @@ async def render():
                 with col:
                     if st.checkbox(part, value=True, key=f"report_part_{part}"):
                         report_parts.append(part)
+
+        st.subheader("Настройки отображения")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            show_average_scores = st.checkbox(
+                "Показывать средний балл (/3)",
+                value=True,
+                key="show_average_scores",
+                help="Включить отображение среднего балла в отчёте. Если выключено — показываются только проценты.",
+            )
+        with col_b:
+            show_qualification = st.checkbox(
+                "Показывать уровень квалификации",
+                value=True,
+                key="show_qualification",
+                help="Показывать блок квалификации (Learner / Qualified / Experienced / Master).",
+            )
 
     assessment_info = st.text_area(
         "Общие данные про ассессмент",
@@ -123,6 +142,8 @@ async def render():
                 assessment_info=assessment_info,
                 assessment_type=assessment_type,
                 report_parts=report_parts,
+                show_average_scores=show_average_scores,
+                show_qualification=show_qualification,
             )
             if results:
                 st.session_state["preview_results"] = results
