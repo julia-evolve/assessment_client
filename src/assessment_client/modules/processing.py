@@ -318,7 +318,7 @@ async def process_open_question_inputs(df_open_one_email) -> List[Dict]:
         for q, ans, comps, inds in _aggregate_by_question(df_open_one_email)
     ]
 
-async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info="", assessment_type="external", report_parts=None) -> Dict[str, Dict]:
+async def process_all_inputs(participants_results_file, tasks_file, competency_file=None, assessment_info="", assessment_type="external", report_parts=None, show_average_scores=True, show_qualification=True) -> Dict[str, Dict]:
     """
     Process uploaded files and return CombinedAssessmentRequest payloads per email.
     
@@ -382,6 +382,8 @@ async def process_all_inputs(participants_results_file, tasks_file, competency_f
             "mini_cases": None,
             "big_cases": None,
             "report_parts": report_parts or [],
+            "show_average_scores": show_average_scores,
+            "show_qualification": show_qualification,
         }
         
         # Process each task type

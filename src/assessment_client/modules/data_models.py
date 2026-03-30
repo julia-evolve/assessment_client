@@ -229,6 +229,21 @@ class EvalAssessmentRequest(BaseModel):
         default=None, description="List of big cases to evaluate (optional)"
     )
 
+    show_average_scores: bool = Field(
+        default=True,
+        description=(
+            "Include /3 scores in the report. "
+            "False → only percentages are shown."
+        ),
+    )
+    show_qualification: bool = Field(
+        default=True,
+        description=(
+            "Show qualification level block "
+            "(Learner / Qualified / Experienced / Master)."
+        ),
+    )
+
     # Webhook for final results
     webhook_url: str = Field(..., description="Webhook URL to send combined results")
     report_parts: Optional[List[str]] = Field(
